@@ -92,13 +92,13 @@ export function Navbar() {
               /* Logged-out state */
               <>
                 <Link
-                  href="/auth"
+                  href={!loading && user ? "/dashboard" : "/auth"}
                   className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-white/[0.04] rounded-lg"
                 >
                   Sign in
                 </Link>
                 <Link
-                  href="/auth"
+                  href={!loading && user ? "/dashboard" : "/auth"}
                   className="group relative px-5 py-2 text-sm font-medium rounded-xl overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-shadow duration-300"
                 >
                   <span className="absolute inset-0 bg-gradient-to-r from-primary to-primary/80" />
@@ -153,14 +153,14 @@ export function Navbar() {
                 ) : (
                   <>
                     <Link
-                      href="/auth"
+                      href={!loading && user ? "/dashboard" : "/auth"}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="px-4 py-3 text-sm text-center text-muted-foreground hover:text-foreground transition-colors rounded-lg"
                     >
                       Sign in
                     </Link>
                     <Link
-                      href="/auth"
+                      href={!loading && user ? "/dashboard" : "/auth"}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="px-4 py-3 text-sm font-medium text-white text-center rounded-xl bg-gradient-to-r from-primary to-primary/80"
                     >

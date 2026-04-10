@@ -99,7 +99,7 @@ export default function AuthPage() {
     }
   }
 
-  if (authLoading) {
+  if (authLoading || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050505]">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />

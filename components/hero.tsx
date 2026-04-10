@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { ArrowRight, Play, Sparkles } from 'lucide-react'
+import { useAuth } from './auth-context'
 
 // Dynamically import the 3D orb to avoid SSR issues
 const AIOrb = dynamic(() => import('./ai-orb').then(mod => ({ default: mod.AIOrb })), {
@@ -73,6 +74,7 @@ function JourneyCard({
 
 export function Hero() {
   const [isVisible, setIsVisible] = useState(false)
+  const { user, loading } = useAuth()
 
   useEffect(() => {
     setIsVisible(true)
@@ -135,7 +137,7 @@ export function Hero() {
             }`}
           >
             <Link
-              href="/auth"
+              href={!loading && user ? "/dashboard" : "/auth"}
               className="group inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-medium text-white rounded-xl bg-primary hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/25"
             >
               Start Preparing Free
