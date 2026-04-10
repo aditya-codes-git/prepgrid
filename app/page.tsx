@@ -4,7 +4,7 @@ import { Features } from '@/components/features'
 import { HowItWorks } from '@/components/how-it-works'
 import { AIDemo } from '@/components/ai-demo'
 import { CTA } from '@/components/cta'
-import { Footer } from '@/components/footer'
+import { CinematicFooter } from '@/components/ui/motion-footer'
 
 export default function Home() {
   return (
@@ -15,7 +15,7 @@ export default function Home() {
       <HowItWorks />
       <AIDemo />
       <CTA />
-      <Footer />
+      <CinematicFooter />
     </main>
   )
 }
