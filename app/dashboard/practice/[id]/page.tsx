@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Editor from '@monaco-editor/react'
 import { ArrowLeft, Play, LayoutGrid, CheckCircle2, AlertCircle } from 'lucide-react'
-import { problems, Problem } from '@/lib/data/questions'
 import { useAuth } from '@/components/auth-context'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -23,7 +22,7 @@ export default function ProblemPage() {
   const router = useRouter()
   const { user } = useAuth()
   
-  const [problem, setProblem] = useState<Problem | null>(null)
+  const [problem, setProblem] = useState<any | null>(null)
   const [language, setLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp' | 'c'>('python')
   const [code, setCode] = useState('')
   const [output, setOutput] = useState('')
@@ -31,13 +30,23 @@ export default function ProblemPage() {
   const [isSolved, setIsSolved] = useState(false)
 
   useEffect(() => {
-    const id = parseInt(params.id as string)
-    const p = problems.find(prob => prob.id === id)
-    if (p) {
-      setProblem(p)
-      setCode(p.starterCode['python'])
-      checkIfSolved(id)
+    async function fetchProblem() {
+      const id = parseInt(params.id as string)
+      const { data } = await supabase.from('questions').select('*').eq('id', id).single()
+      if (data) {
+        setProblem(data)
+        
+        let initialLang = 'python'
+        if (typeof window !== 'undefined') {
+          initialLang = localStorage.getItem('prepgrid_default_lang') || 'python'
+        }
+        setLanguage(initialLang as any)
+        
+        setCode(data.function_signatures[initialLang] || '')
+        checkIfSolved(id)
+      }
     }
+    fetchProblem()
   }, [params.id])
 
   async function checkIfSolved(questionId: number) {
@@ -53,8 +62,8 @@ export default function ProblemPage() {
     if (data) setIsSolved(true)
   }
 
-  const getStarterCode = (prob: Problem, lang: string) => {
-    const code = prob.starterCode[lang as keyof typeof prob.starterCode]
+  const getStarterCode = (prob: any, lang: string) => {
+    const code = prob.function_signatures?.[lang as keyof typeof prob.function_signatures]
     if (code) return code;
     
     if (lang === 'cpp') return `// Complete the function\n// Example:\n// vector<int> solve(vector<int>& nums) {\n//     \n// }`;
@@ -106,9 +115,9 @@ export default function ProblemPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source_code: finalCodeToSend,
-          language_id: parseInt(LANGUAGE_VERSIONS[language]),
+          language_id: parseInt(LANGUAGE_VERSIONS[language] as any),
           // Pass the first example input to evaluate against.
-          stdin: problem.examples[0]?.input || ''
+          stdin: problem.test_cases?.[0]?.input || ''
         })
       })
 
@@ -191,12 +200,12 @@ export default function ProblemPage() {
           <p className="whitespace-pre-wrap">{problem.description}</p>
           
           <div className="mt-8 space-y-6">
-            {problem.examples.map((ex, i) => (
+            {problem.test_cases?.map((ex: any, i: number) => (
               <div key={i} className="bg-white/5 rounded-xl p-4 border border-white/5">
                 <p className="text-sm font-bold text-white mb-2">Example {i + 1}:</p>
                 <div className="font-mono text-sm space-y-1">
                   <p><span className="text-muted-foreground">Input:</span> {ex.input}</p>
-                  <p><span className="text-muted-foreground">Output:</span> {ex.output}</p>
+                  <p><span className="text-muted-foreground">Output:</span> {ex.expected || ex.output}</p>
                   {ex.explanation && <p className="text-muted-foreground mt-2 text-xs">{ex.explanation}</p>}
                 </div>
               </div>
@@ -206,7 +215,7 @@ export default function ProblemPage() {
           <div className="mt-8">
             <h3 className="text-sm font-bold text-white mb-3">Constraints:</h3>
             <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-              {problem.constraints.map((c, i) => <li key={i} className="font-mono">{c}</li>)}
+              {problem.constraints?.map((c: string, i: number) => <li key={i} className="font-mono">{c}</li>)}
             </ul>
           </div>
         </div>

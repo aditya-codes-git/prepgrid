@@ -7,8 +7,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth-context'
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { InteractiveRobotSpline } from '@/components/blocks/interactive-3d-robot'
+import { checkAdminCredentials } from '../actions/admin-auth'
 
-type AuthMode = 'login' | 'signup'
+type AuthMode = 'login' | 'signup' | 'admin'
 
 function GoogleIcon() {
   return (
@@ -67,8 +68,21 @@ export default function AuthPage() {
     setLoading(true)
 
     try {
+      if (mode === 'admin') {
+        const adminRes = await checkAdminCredentials(email, password)
+        if (adminRes.success) {
+          localStorage.setItem('prepgrid_role', 'admin')
+          router.push('/admin')
+          return
+        } else {
+          setError('Invalid admin credentials')
+          setLoading(false)
+          return
+        }
+      }
+
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -76,18 +90,18 @@ export default function AuthPage() {
             emailRedirectTo: `${window.location.origin}/auth`,
           },
         })
-        if (error) {
-          setError(error.message)
+        if (signUpErr) {
+          setError(signUpErr.message)
         } else {
           setSuccess('Check your email for a confirmation link!')
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
-        if (error) {
-          setError(error.message)
+        if (signInErr) {
+          setError(signInErr.message)
         } else {
           router.push('/dashboard')
         }
@@ -165,34 +179,40 @@ export default function AuthPage() {
               </svg>
             </Link>
             <h1 className="text-3xl font-black tracking-tighter text-white uppercase sm:text-4xl">
-              {mode === 'login' ? 'Welcome back' : 'Start Preparation'}
+              {mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Start Preparation' : 'Admin Portal'}
             </h1>
             <p className="text-muted-foreground mt-3 text-sm leading-relaxed max-w-xs">
               {mode === 'login'
                 ? 'Sign in to your account to continue your technical interview journey.'
-                : 'Join PrepGrid and start mastering technical interviews with AI precision.'}
+                : mode === 'signup' 
+                ? 'Join PrepGrid and start mastering technical interviews with AI precision.'
+                : 'Authenticate with system credentials to access the administrative dashboard.'}
             </p>
           </div>
 
           <div className="space-y-5">
-            {/* Google OAuth */}
-            <button
-              onClick={handleGoogleAuth}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 h-14 px-4 rounded-xl text-sm font-bold bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 disabled:opacity-50"
-            >
-              <GoogleIcon />
-              CONTINUE WITH GOOGLE
-            </button>
+            {mode !== 'admin' && (
+              <>
+                {/* Google OAuth */}
+                <button
+                  onClick={handleGoogleAuth}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-3 h-14 px-4 rounded-xl text-sm font-bold bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 disabled:opacity-50"
+                >
+                  <GoogleIcon />
+                  CONTINUE WITH GOOGLE
+                </button>
 
-            {/* Divider */}
-            <div className="flex items-center gap-4 py-4">
-              <div className="flex-1 h-px bg-white/5" />
-              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.3em]">
-                or manually
-              </span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
+                {/* Divider */}
+                <div className="flex items-center gap-4 py-4">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.3em]">
+                    or manually
+                  </span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+              </>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -230,7 +250,7 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={mode === 'admin' ? 1 : 6}
                   className="w-full h-14 pl-12 pr-12 rounded-xl text-sm font-medium bg-white/[0.03] border border-white/5 text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:bg-white/[0.05] transition-all"
                 />
                 <button
@@ -262,35 +282,46 @@ export default function AuthPage() {
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'
+                  mode === 'login' ? 'SIGN IN' : mode === 'signup' ? 'CREATE ACCOUNT' : 'ENTER ADMIN PORTAL'
                 )}
               </button>
             </form>
 
-            <div className="pt-8 text-center">
-              <p className="text-xs text-muted-foreground font-bold tracking-tight">
-                {mode === 'login' ? (
-                  <>
-                    NOT A MEMBER YET?{' '}
-                    <button
-                      onClick={() => setMode('signup')}
-                      className="ml-1 text-primary hover:text-white transition-colors font-black"
-                    >
-                      REGISTER HERE
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    ALREADY REGISTERED?{' '}
-                    <button
-                      onClick={() => setMode('login')}
-                      className="ml-1 text-primary hover:text-white transition-colors font-black"
-                    >
-                      LOG IN NOW
-                    </button>
-                  </>
-                )}
-              </p>
+            <div className="pt-8 flex flex-col gap-4 text-center">
+              {mode !== 'admin' ? (
+                <>
+                  <p className="text-xs text-muted-foreground font-bold tracking-tight">
+                    {mode === 'login' ? (
+                      <>
+                        NOT A MEMBER YET?{' '}
+                        <button
+                          onClick={() => setMode('signup')}
+                          className="ml-1 text-primary hover:text-white transition-colors font-black"
+                        >
+                          REGISTER HERE
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        ALREADY REGISTERED?{' '}
+                        <button
+                          onClick={() => setMode('login')}
+                          className="ml-1 text-primary hover:text-white transition-colors font-black"
+                        >
+                          LOG IN NOW
+                        </button>
+                      </>
+                    )}
+                  </p>
+                  <button onClick={() => setMode('admin')} className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground font-bold uppercase tracking-wider transition-colors mt-4">
+                    Admin Access
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setMode('login')} className="text-xs text-primary hover:text-white font-bold tracking-tight uppercase transition-colors">
+                  BACK TO USER LOGIN
+                </button>
+              )}
             </div>
           </div>
         </div>

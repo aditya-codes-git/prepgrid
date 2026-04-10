@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Target, Search, Filter, CheckCircle2, ChevronRight } from 'lucide-react'
-import { problems } from '@/lib/data/questions'
+import { Target, Search, Filter, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react'
 import { useAuth } from '@/components/auth-context'
 import { supabase } from '@/lib/supabase'
 
@@ -13,6 +12,18 @@ export default function PracticeHubPage() {
   const [solvedIds, setSolvedIds] = useState<Set<number>>(new Set())
   const { user } = useAuth()
   const router = useRouter()
+
+  const [problems, setProblems] = useState<any[]>([])
+  const [loadingProblems, setLoadingProblems] = useState(true)
+
+  useEffect(() => {
+    async function fetchQuestions() {
+      const { data } = await supabase.from('questions').select('*').eq('is_active', true).order('id', { ascending: true })
+      if (data) setProblems(data)
+      setLoadingProblems(false)
+    }
+    fetchQuestions()
+  }, [])
 
   useEffect(() => {
     async function fetchSubmissions() {
@@ -44,7 +55,7 @@ export default function PracticeHubPage() {
   // Calculate progress
   const totalSolved = solvedIds.size
   const totalProblems = problems.length
-  const progressPercent = Math.round((totalSolved / totalProblems) * 100)
+  const progressPercent = totalProblems === 0 ? 0 : Math.round((totalSolved / totalProblems) * 100)
 
   return (
     <div className="flex flex-col gap-8 pb-12 max-w-5xl mx-auto">
@@ -122,7 +133,11 @@ export default function PracticeHubPage() {
 
         {/* List */}
         <div className="divide-y divide-white/5">
-          {filteredProblems.length === 0 ? (
+          {loadingProblems ? (
+            <div className="p-12 text-center text-muted-foreground flex justify-center items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" /> Loading problems...
+            </div>
+          ) : filteredProblems.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
               No problems found matching your criteria.
             </div>

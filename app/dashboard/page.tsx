@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-context'
 import { supabase } from '@/lib/supabase'
-import { problems } from '@/lib/data/questions'
 
 interface PrepStats {
   solvedCount: number;
@@ -42,6 +41,7 @@ export default function DashboardPage() {
   
   const [stats, setStats] = useState<PrepStats>({ solvedCount: 0, avgScore: 0, interviewsTaken: 0, weakTopic: 'Analyzing...' })
   const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [recommendedProblems, setRecommendedProblems] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -66,6 +66,11 @@ export default function DashboardPage() {
       .select('id, role, score, created_at')
       .eq('user_id', user!.id)
 
+    // 3. Fetch Questions
+    const { data: qData } = await supabase.from('questions').select('*').eq('is_active', true)
+    const questions = qData || []
+    setRecommendedProblems(questions.slice(0, 5))
+
     // Calculate Stats
     const solvedCount = subs?.length || 0
     const interviewsTaken = ints?.length || 0
@@ -75,12 +80,14 @@ export default function DashboardPage() {
 
     // Calculate Weak Topic
     let weakTopic = "Need more data"
-    if (subs && subs.length > 0) {
+    if (subs && subs.length > 0 && questions.length > 0) {
       const topicCounts: Record<string, number> = {}
-      problems.forEach(p => topicCounts[p.topic] = 0)
+      questions.forEach(p => topicCounts[p.topic] = 0)
       subs.forEach(s => {
-        const prob = problems.find(p => p.id === s.question_id)
-        if (prob) topicCounts[prob.topic] += 1
+        const prob = questions.find(p => p.id === s.question_id)
+        if (prob) {
+          topicCounts[prob.topic] = (topicCounts[prob.topic] || 0) + 1
+        }
       })
       
       let minTopic = Object.keys(topicCounts)[0]
@@ -100,7 +107,7 @@ export default function DashboardPage() {
     const mergedActivity: ActivityItem[] = []
     
     subs?.forEach(s => {
-      const p = problems.find(prob => prob.id === s.question_id)
+      const p = questions.find(prob => prob.id === s.question_id)
       mergedActivity.push({
         id: s.id,
         action: 'Solved',
@@ -133,9 +140,6 @@ export default function DashboardPage() {
     if (min < 1440) return `${Math.floor(min/60)} hrs ago`
     return `${Math.floor(min/1440)} days ago`
   }
-
-  // Pre-filter recommended problems (just hardcode top 5 unsolved if possible, or first 5)
-  const recommendedProblems = problems.slice(0, 5)
 
   return (
     <div className="flex flex-col gap-8 pb-12">
