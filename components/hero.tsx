@@ -27,26 +27,26 @@ function JourneyCard({
   glowColor?: string
   style?: React.CSSProperties
 }) {
-  const cardRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const el = cardRef.current
+    const el = innerRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     const centerX = rect.width / 2
     const centerY = rect.height / 2
-    const rotateX = ((y - centerY) / centerY) * -8
-    const rotateY = ((x - centerX) / centerX) * 8
+    const rotateX = ((y - centerY) / centerY) * -10
+    const rotateY = ((x - centerX) / centerX) * 10
 
-    el.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.08)`
-    el.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor.replace(/[\d.]+\)$/, '0.15)')}, inset 0 1px 0 rgba(255,255,255,0.1)`
-    el.style.borderColor = glowColor.replace(/[\d.]+\)$/, '0.5)')
+    el.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.1)`
+    el.style.boxShadow = `0 0 24px ${glowColor}, 0 0 48px ${glowColor.replace(/[\d.]+\)$/, '0.15)')}, inset 0 1px 0 rgba(255,255,255,0.12)`
+    el.style.borderColor = glowColor.replace(/[\d.]+\)$/, '0.6)')
   }, [glowColor])
 
   const handleMouseLeave = useCallback(() => {
-    const el = cardRef.current
+    const el = innerRef.current
     if (!el) return
     el.style.transform = ''
     el.style.boxShadow = ''
@@ -54,17 +54,22 @@ function JourneyCard({
   }, [])
 
   return (
-    <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className={`glass rounded-xl px-4 py-3 cursor-default transition-all duration-300 ease-out z-20 ${className}`}
-      style={{ willChange: 'transform', ...style }}
-    >
-      {children}
+    // Outer: handles positioning, z-index, animation (translate/float)
+    <div className={`z-20 ${className}`} style={style}>
+      {/* Inner: handles tilt + glow (separate transform context) */}
+      <div
+        ref={innerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="glass rounded-xl px-4 py-3 cursor-default transition-all duration-300 ease-out"
+        style={{ willChange: 'transform' }}
+      >
+        {children}
+      </div>
     </div>
   )
 }
+
 
 export function Hero() {
   const [isVisible, setIsVisible] = useState(false)
@@ -130,7 +135,7 @@ export function Hero() {
             }`}
           >
             <Link
-              href="#cta"
+              href="/auth"
               className="group inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-medium text-white rounded-xl bg-primary hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/25"
             >
               Start Preparing Free

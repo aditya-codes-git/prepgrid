@@ -25,9 +25,10 @@ function Particles({ count = 60 }: { count?: number }) {
   }, [count])
   
   useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.1)
     if (ref.current) {
-      ref.current.rotation.y += delta * 0.25
-      ref.current.rotation.x += delta * 0.12
+      ref.current.rotation.y += dt * 0.25
+      ref.current.rotation.x += dt * 0.12
     }
   })
   
@@ -57,7 +58,8 @@ function Ring({ radius, rotation, speed }: { radius: number; rotation: [number, 
   const ref = useRef<THREE.Mesh>(null)
   
   useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.z += delta * speed
+    const dt = Math.min(delta, 0.1)
+    if (ref.current) ref.current.rotation.z += dt * speed
   })
   
   return (
@@ -80,9 +82,15 @@ function GlassOrb() {
   const innerRef = useRef<THREE.Mesh>(null)
   const coreRef = useRef<THREE.Mesh>(null)
   const target = useRef({ x: 0, y: 0 })
+  const time = useRef(0)
+  const rotY = useRef(0)
   
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     if (!groupRef.current) return
+    
+    // Clamp delta to prevent huge jumps after tab switch
+    const dt = Math.min(delta, 0.1)
+    time.current += dt
     
     // Smooth mouse follow (lerp towards target)
     target.current.x = mouse.y * 0.5
@@ -91,27 +99,30 @@ function GlassOrb() {
     groupRef.current.rotation.x = THREE.MathUtils.lerp(
       groupRef.current.rotation.x,
       target.current.x,
-      delta * 3
+      dt * 3
     )
+    
+    // Accumulate rotation target incrementally
+    rotY.current += dt * 0.1
     groupRef.current.rotation.y = THREE.MathUtils.lerp(
       groupRef.current.rotation.y,
-      target.current.y + state.clock.elapsedTime * 0.1,
-      delta * 3
+      target.current.y + rotY.current,
+      dt * 3
     )
     
-    // Floating motion
-    groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 1.2) * 0.08
+    // Floating motion using accumulated time
+    groupRef.current.position.y = Math.sin(time.current * 1.2) * 0.08
     
-    // Pulse the inner glow
+    // Pulse the inner glow using accumulated time
     if (innerRef.current) {
       const mat = innerRef.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = 0.6 + Math.sin(state.clock.elapsedTime * 2.5) * 0.25
+      mat.emissiveIntensity = 0.6 + Math.sin(time.current * 2.5) * 0.25
     }
     
-    // Pulse core brightness
+    // Pulse core brightness using accumulated time
     if (coreRef.current) {
       const mat = coreRef.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.3
+      mat.emissiveIntensity = 1 + Math.sin(time.current * 3) * 0.3
     }
   })
   
@@ -244,7 +255,7 @@ export function AIOrb({ className = '' }: { className?: string }) {
   }, [])
   
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative pointer-events-none ${className}`}>
       <CSSOrb />
       
       {mounted && !failed && (

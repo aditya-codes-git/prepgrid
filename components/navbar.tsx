@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, LogOut } from 'lucide-react'
+import { useAuth } from '@/components/auth-context'
 
 const navLinks = [
   { name: 'Features', href: '#features' },
@@ -15,6 +16,7 @@ const navLinks = [
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { user, loading, signOut } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,6 +25,10 @@ export function Navbar() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  // Get display name or email
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+  const avatarLetter = displayName.charAt(0).toUpperCase()
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
@@ -62,23 +68,47 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* CTA Buttons */}
+          {/* CTA Buttons / User Menu */}
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="#"
-              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-white/[0.04] rounded-lg"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="#cta"
-              className="group relative px-5 py-2 text-sm font-medium rounded-xl overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-shadow duration-300"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-primary to-primary/80" />
-              <span className="absolute inset-0 bg-gradient-to-r from-primary via-secondary/30 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <span className="absolute inset-[1px] rounded-[10px] bg-gradient-to-b from-white/20 to-transparent opacity-60" />
-              <span className="relative text-white drop-shadow-sm">Get Started</span>
-            </Link>
+            {!loading && user ? (
+              /* Logged-in state */
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white">
+                    {avatarLetter}
+                  </div>
+                  <span className="text-sm text-foreground font-medium max-w-[120px] truncate">
+                    {displayName}
+                  </span>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/[0.04]"
+                  title="Sign out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              /* Logged-out state */
+              <>
+                <Link
+                  href="/auth"
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-white/[0.04] rounded-lg"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/auth"
+                  className="group relative px-5 py-2 text-sm font-medium rounded-xl overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-shadow duration-300"
+                >
+                  <span className="absolute inset-0 bg-gradient-to-r from-primary to-primary/80" />
+                  <span className="absolute inset-0 bg-gradient-to-r from-primary via-secondary/30 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <span className="absolute inset-[1px] rounded-[10px] bg-gradient-to-b from-white/20 to-transparent opacity-60" />
+                  <span className="relative text-white drop-shadow-sm">Get Started</span>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -106,19 +136,39 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 pt-4 mt-2 border-t border-white/[0.06]">
-                <Link
-                  href="#"
-                  className="px-4 py-3 text-sm text-center text-muted-foreground hover:text-foreground transition-colors rounded-lg"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="#cta"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="px-4 py-3 text-sm font-medium text-white text-center rounded-xl bg-gradient-to-r from-primary to-primary/80"
-                >
-                  Get Started
-                </Link>
+                {!loading && user ? (
+                  <>
+                    <div className="flex items-center gap-2.5 px-4 py-3">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white">
+                        {avatarLetter}
+                      </div>
+                      <span className="text-sm text-foreground font-medium">{displayName}</span>
+                    </div>
+                    <button
+                      onClick={() => { signOut(); setIsMobileMenuOpen(false) }}
+                      className="px-4 py-3 text-sm text-center text-muted-foreground hover:text-foreground transition-colors rounded-lg"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="px-4 py-3 text-sm text-center text-muted-foreground hover:text-foreground transition-colors rounded-lg"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/auth"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="px-4 py-3 text-sm font-medium text-white text-center rounded-xl bg-gradient-to-r from-primary to-primary/80"
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>

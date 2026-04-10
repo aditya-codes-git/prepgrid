@@ -40,7 +40,7 @@ export function CTA() {
           
           {/* CTA Button */}
           <Link
-            href="#"
+            href="/auth"
             className="group inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-medium text-white rounded-xl bg-primary hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/20"
           >
             Get Started for Free

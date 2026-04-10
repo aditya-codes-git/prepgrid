@@ -7,29 +7,29 @@
   /* Base - Deep neutral with slight blue-green tint */
   --background: #06080a;
   --foreground: #f4f4f5;
-  
+
   /* Cards & Surfaces */
   --card: rgba(255, 255, 255, 0.02);
   --card-foreground: #f4f4f5;
   --popover: rgba(255, 255, 255, 0.03);
   --popover-foreground: #f4f4f5;
-  
+
   /* Primary - Electric Indigo */
   --primary: #6366f1;
   --primary-foreground: #ffffff;
-  
+
   /* Secondary - Soft Cyan/Teal */
   --secondary: #22d3ee;
   --secondary-foreground: #06080a;
-  
+
   /* Accent - Muted warm (coral/peach) for highlights only */
   --accent: #fb923c;
   --accent-foreground: #06080a;
-  
+
   /* Muted tones */
   --muted: rgba(255, 255, 255, 0.04);
   --muted-foreground: #71717a;
-  
+
   /* UI */
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -65,6 +65,106 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  @keyframes spin {
+  0% {
+    transform: rotate(0deg);
+    }
+  100% {
+    transform: rotate(360deg);
+    }
+  }
+  @keyframes charAppear {
+  0% {
+    transform: translateY(50%);
+    opacity: 0;
+    filter: blur(20px);
+    }
+  20% {
+    transform: translateY(70%);
+    opacity: 1;
+    }
+  50% {
+    transform: translateY(-15%);
+    opacity: 1;
+    filter: blur(0);
+    }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    }
+  }
+  @keyframes charDisappear {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+    }
+  100% {
+    transform: translateY(-70%);
+    opacity: 0;
+    filter: blur(3px);
+    }
+  }
+  @keyframes arrow {
+  0% {
+    opacity: 1;
+    }
+  50% {
+    transform: translateX(60px);
+    opacity: 0;
+    }
+  51% {
+    transform: translateX(-200px);
+    opacity: 0;
+    }
+  100% {
+    transform: translateX(-128px);
+    opacity: 1;
+    }
+  }
+  @keyframes swingArrow {
+  50% {
+    transform: translateX(5px) scale(0.9);
+    }
+  }
+  @keyframes rotateArrowLine {
+  50% {
+    transform: rotate(30deg);
+    }
+  80% {
+    transform: rotate(55deg);
+    }
+  }
+  @keyframes rotateArrowLine2 {
+  50% {
+    transform: rotate(330deg);
+    }
+  80% {
+    transform: rotate(300deg);
+    }
+  }
+  @keyframes resetArrow {
+  0% {
+    transform: translateX(-128px);
+    }
+  100% {
+    transform: translateX(0);
+    }
+  }
+  @keyframes path {
+  from {
+    stroke: white;
+    }
+  to {
+    stroke-dashoffset: -480;
+    stroke: #f9c6fe;
+    }
+  }
+  @keyframes splash {
+  to {
+    stroke-dasharray: 2 60;
+    stroke-dashoffset: -60;
+    }
+  }
 }
 
 @layer base {
