@@ -248,7 +248,7 @@ export function AIOrb({ className = '' }: { className?: string }) {
       <CSSOrb />
       
       {mounted && !failed && (
-        <div className="absolute inset-0 z-10">
+        <div className="absolute inset-0 z-10 pointer-events-none">
           <Canvas
             camera={{ position: [0, 0, 4.5], fov: 45 }}
             gl={{

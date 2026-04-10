@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { ArrowRight, Play, Sparkles } from 'lucide-react'
@@ -14,6 +14,57 @@ const AIOrb = dynamic(() => import('./ai-orb').then(mod => ({ default: mod.AIOrb
     </div>
   ),
 })
+
+// Interactive journey card with magnetic tilt + glow
+function JourneyCard({
+  children,
+  className = '',
+  glowColor = 'rgba(99, 102, 241, 0.4)',
+  style,
+}: {
+  children: React.ReactNode
+  className?: string
+  glowColor?: string
+  style?: React.CSSProperties
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = cardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
+    const rotateX = ((y - centerY) / centerY) * -8
+    const rotateY = ((x - centerX) / centerX) * 8
+
+    el.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.08)`
+    el.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor.replace(/[\d.]+\)$/, '0.15)')}, inset 0 1px 0 rgba(255,255,255,0.1)`
+    el.style.borderColor = glowColor.replace(/[\d.]+\)$/, '0.5)')
+  }, [glowColor])
+
+  const handleMouseLeave = useCallback(() => {
+    const el = cardRef.current
+    if (!el) return
+    el.style.transform = ''
+    el.style.boxShadow = ''
+    el.style.borderColor = ''
+  }, [])
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`glass rounded-xl px-4 py-3 cursor-default transition-all duration-300 ease-out z-20 ${className}`}
+      style={{ willChange: 'transform', ...style }}
+    >
+      {children}
+    </div>
+  )
+}
 
 export function Hero() {
   const [isVisible, setIsVisible] = useState(false)
@@ -105,42 +156,56 @@ export function Hero() {
           <div className="relative mx-auto w-full max-w-3xl aspect-square md:aspect-[16/10]">
             <AIOrb className="w-full h-full" />
             
-            {/* Floating stat cards around the orb */}
-            <div className="absolute top-1/4 -left-4 md:left-8 glass rounded-xl px-4 py-3 animate-subtle-float hidden sm:block" style={{ animationDelay: '0s' }}>
-              <div className="text-2xl font-semibold">10K+</div>
-              <div className="text-xs text-muted-foreground">Active Users</div>
-            </div>
-            
-            <div className="absolute top-1/3 -right-4 md:right-8 glass rounded-xl px-4 py-3 animate-subtle-float hidden sm:block" style={{ animationDelay: '1s' }}>
-              <div className="text-2xl font-semibold text-secondary">85%</div>
-              <div className="text-xs text-muted-foreground">Offer Rate</div>
-            </div>
-            
-            <div className="absolute bottom-1/4 left-1/4 glass rounded-xl px-4 py-3 animate-subtle-float hidden md:block" style={{ animationDelay: '2s' }}>
-              <div className="text-2xl font-semibold">4.9</div>
-              <div className="text-xs text-muted-foreground">User Rating</div>
-            </div>
-          </div>
-        </div>
+            {/* Journey Stage Cards */}
+            {/* APTITUDE — top left */}
+            <JourneyCard
+              className="absolute top-[12%] -left-2 md:left-4 animate-subtle-float hidden sm:block"
+              glowColor="rgba(99, 102, 241, 0.4)"
+              style={{ animationDelay: '0s' }}
+            >
+              <div className="text-sm font-bold uppercase tracking-wider">Aptitude</div>
+              <div className="text-[11px] text-muted-foreground tracking-wide mt-0.5">Quant • Logical • Verbal</div>
+            </JourneyCard>
 
-        {/* Trust Stats Strip */}
-        <div
-          className={`mt-16 lg:mt-20 transition-all duration-700 delay-500 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}
-        >
-          <div className="flex flex-wrap justify-center gap-x-12 gap-y-6 py-8 border-t border-b border-border/50">
-            {[
-              { value: '50,000+', label: 'Mock Interviews Completed' },
-              { value: '200+', label: 'Interview Questions' },
-              { value: '15+', label: 'Tech Companies Covered' },
-              { value: '24/7', label: 'AI Availability' },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-2xl sm:text-3xl font-semibold tracking-tight">{stat.value}</div>
-                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </div>
-            ))}
+            {/* DSA — top right */}
+            <JourneyCard
+              className="absolute top-[8%] -right-2 md:right-4 animate-subtle-float hidden sm:block"
+              glowColor="rgba(34, 211, 238, 0.4)"
+              style={{ animationDelay: '0.8s' }}
+            >
+              <div className="text-sm font-bold uppercase tracking-wider text-secondary">DSA</div>
+              <div className="text-[11px] text-muted-foreground tracking-wide mt-0.5">Arrays • Trees • Graphs</div>
+            </JourneyCard>
+
+            {/* PROJECTS — mid left */}
+            <JourneyCard
+              className="absolute top-[52%] -left-2 md:left-0 animate-subtle-float hidden md:block"
+              glowColor="rgba(99, 102, 241, 0.35)"
+              style={{ animationDelay: '1.6s' }}
+            >
+              <div className="text-sm font-bold uppercase tracking-wider">Projects</div>
+              <div className="text-[11px] text-muted-foreground tracking-wide mt-0.5">Build • Deploy • Showcase</div>
+            </JourneyCard>
+
+            {/* INTERVIEWS — mid right */}
+            <JourneyCard
+              className="absolute top-[48%] -right-2 md:right-0 animate-subtle-float hidden md:block"
+              glowColor="rgba(167, 139, 250, 0.4)"
+              style={{ animationDelay: '2.4s' }}
+            >
+              <div className="text-sm font-bold uppercase tracking-wider text-[#a78bfa]">Interviews</div>
+              <div className="text-[11px] text-muted-foreground tracking-wide mt-0.5">HR • Technical • System Design</div>
+            </JourneyCard>
+
+            {/* OFFERS — bottom center */}
+            <JourneyCard
+              className="absolute bottom-[8%] left-1/2 -translate-x-1/2 animate-subtle-float hidden sm:block !px-5"
+              glowColor="rgba(52, 211, 153, 0.4)"
+              style={{ animationDelay: '3.2s' }}
+            >
+              <div className="text-sm font-bold uppercase tracking-wider text-[#34d399]">Offers</div>
+              <div className="text-[11px] text-muted-foreground tracking-wide mt-0.5">Placements • Internships</div>
+            </JourneyCard>
           </div>
         </div>
       </div>
