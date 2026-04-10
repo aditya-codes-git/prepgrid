@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { Menu, X, LogOut } from 'lucide-react'
 import { useAuth } from '@/components/auth-context'
@@ -42,17 +43,15 @@ export function Navbar() {
       >
         <div className="flex items-center justify-between px-6 py-3.5">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="relative w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                <polyline points="2 17 12 22 22 17" />
-                <polyline points="2 12 12 17 22 12" />
-              </svg>
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+            {/* Mobile Logo Only */}
+            <div className="relative w-10 h-10 md:hidden">
+              <Image src="/Logo/prepgrid_logo_only.png" alt="PrepGrid Logo" fill className="object-contain" />
             </div>
-            <span className="text-base font-semibold tracking-tight">
-              PrepGrid
-            </span>
+            {/* Desktop Full Logo */}
+            <div className="relative h-10 w-40 hidden md:block">
+              <Image src="/Logo/prepgrid_full.png" alt="PrepGrid Logo" fill className="object-contain object-left" />
+            </div>
           </Link>
 
           {/* Desktop Navigation - Centered */}

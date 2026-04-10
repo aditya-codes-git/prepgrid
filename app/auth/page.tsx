@@ -38,7 +38,7 @@ export default function AuthPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/')
+      router.push('/dashboard')
     }
   }, [user, authLoading, router])
 
@@ -89,7 +89,7 @@ export default function AuthPage() {
         if (error) {
           setError(error.message)
         } else {
-          router.push('/')
+          router.push('/dashboard')
         }
       }
     } catch {

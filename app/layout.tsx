@@ -24,6 +24,9 @@ export const metadata: Metadata = {
     description: 'Practice coding, take AI mock interviews, and get personalized feedback — all in one platform.',
     type: 'website',
   },
+  icons: {
+    icon: '/Logo/prepgrid_logo_only.png',
+  },
   twitter: {
     card: 'summary_large_image',
     title: 'PrepGrid AI | Master Technical Interviews with AI Precision',
