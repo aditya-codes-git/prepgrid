@@ -1,9 +1,4 @@
-import { Groq } from "groq-sdk"
 import { createClient } from "@supabase/supabase-js"
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-})
 
 // Using service role key or anon key (ensure env var exists or fallback to anon)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -15,17 +10,16 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { role, difficulty, resumeData, user_id } = body
 
-    const primary_skills = resumeData?.primary_skills?.join(", ") || "None"
-    const tech_stack = resumeData?.tech_stack?.join(", ") || "None"
-    const weaknesses = resumeData?.weaknesses?.join(", ") || "None"
+    const primary_skills = resumeData?.primary_skills || []
+    const tech_stack = resumeData?.tech_stack || []
+    const weaknesses = resumeData?.weaknesses || []
 
     const prompt = `You are a senior technical interviewer.
 
 Start a mock interview.
 
-Return ONLY valid JSON.
+Return ONLY valid JSON:
 
-Format:
 {
   "question": "string",
   "difficulty": "easy | medium | hard",
@@ -33,12 +27,6 @@ Format:
   "subtopic": "string"
 }
 
-Rules:
-- Ask only ONE question
-- Do NOT return empty values
-- Keep it realistic and role-based
-
-Context:
 Role: ${role}
 Difficulty: ${difficulty}
 Skills: ${primary_skills}
@@ -46,26 +34,34 @@ Tech: ${tech_stack}
 Weaknesses: ${weaknesses}
 `
 
+    //----------------------------------------
+    // USE FETCH INSTEAD OF SDK
+    //----------------------------------------
     let parsed
     try {
-      const completion = await groq.chat.completions.create({
-        messages: [{ role: "user", content: prompt }],
-        model: "llama3-70b-8192",
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages: [{ role: "user", content: prompt }],
+        }),
       })
 
-      const raw = completion.choices[0]?.message?.content || ""
+      const data = await response.json()
+      let raw = data?.choices?.[0]?.message?.content || ""
 
       // CLEAN RESPONSE
-      const cleaned = raw
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim()
+      raw = raw.replace(/```json/g, "").replace(/```/g, "").trim()
 
-      parsed = JSON.parse(cleaned)
+      parsed = JSON.parse(raw)
     } catch (err) {
       // FALLBACK IF JSON FAILS
       parsed = {
-        question: "Can you explain a core concept related to your role?",
+        question: "Explain a key concept related to your role.",
         difficulty: "medium",
         topic: "general",
         subtopic: "basics",
@@ -74,14 +70,16 @@ Weaknesses: ${weaknesses}
 
     // FINAL SAFETY CHECK
     if (!parsed.question || parsed.question.length < 5) {
-      parsed.question = "Explain a key concept in your domain."
+      parsed.question = "Explain a core concept related to your role."
     }
 
-    // SUPABASE INTEGRATION - Insert session
+    //----------------------------------------
+    // SUPABASE INTEGRATION (Preserved for session tracking)
+    //----------------------------------------
     const { data: session, error: sessionError } = await supabase
       .from("interview_sessions")
       .insert({
-        user_id: user_id || null, // Default to null if no user_id passed
+        user_id: user_id || null,
         role,
         difficulty,
       })
@@ -92,7 +90,6 @@ Weaknesses: ${weaknesses}
       console.warn("Could not insert session, proceeding without DB save:", sessionError)
     }
 
-    // Store first question if session was created
     if (session) {
       await supabase.from("interview_questions").insert({
         session_id: session.id,
@@ -114,7 +111,8 @@ Weaknesses: ${weaknesses}
     console.error("API error:", error)
     return new Response(
       JSON.stringify({
-        error: "AI generation failed",
+        success: false,
+        error: "Interview start failed",
         fallback: "What is a core concept in your role?",
       }),
       { status: 500 }
