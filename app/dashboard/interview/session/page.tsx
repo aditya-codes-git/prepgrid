@@ -46,6 +46,16 @@ function SessionContent() {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   
   const [cumulativeScore, setCumulativeScore] = useState(0)
+  const [resumeProfile, setResumeProfile] = useState<any>(null)
+  const [previousQuestions, setPreviousQuestions] = useState<string[]>([])
+
+  // Load resume data from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('prepgrid_resume')
+      if (stored) setResumeProfile(JSON.parse(stored))
+    } catch {} // Graceful fallback if no resume data
+  }, [])
 
   // Fetch initial question
   useEffect(() => {
@@ -62,11 +72,14 @@ function SessionContent() {
         body: JSON.stringify({
           action: 'generate_question',
           role,
-          difficulty
+          difficulty,
+          candidateProfile: resumeProfile,
+          previousQuestions
         })
       })
       const data = await res.json()
       setCurrentQuestion(data.question)
+      setPreviousQuestions(prev => [...prev, data.question])
       setState('question')
     } catch (err) {
       console.error(err)
@@ -86,8 +99,11 @@ function SessionContent() {
         body: JSON.stringify({
           action: 'evaluate_answer',
           role,
+          difficulty,
           previousQuestion: currentQuestion,
-          userAnswer: answer
+          userAnswer: answer,
+          candidateProfile: resumeProfile,
+          previousQuestions
         })
       })
       const data = await res.json()

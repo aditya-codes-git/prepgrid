@@ -9,19 +9,95 @@ const groq = createGroq({
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, role, difficulty, previousQuestion, userAnswer } = body;
+    const { action, role, difficulty, previousQuestion, userAnswer, candidateProfile, previousQuestions } = body;
 
     if (action === 'generate_question') {
+
+      // ── Build a personalized prompt if resume data is available ──
+      let prompt: string;
+
+      if (candidateProfile) {
+        const prevQList = (previousQuestions || []).map((q: string, i: number) => `${i + 1}. ${q}`).join('\n') || 'None yet';
+
+        prompt = `You are a senior technical interviewer at a top product-based company.
+
+Generate ONE highly personalized, realistic interview question for this specific candidate.
+
+--------------------------------------------------
+CANDIDATE PROFILE:
+
+Role: ${role}
+Experience Level: ${candidateProfile.experience_level || 'intermediate'}
+
+Primary Skills:
+${(candidateProfile.primary_skills || []).join(', ')}
+
+Secondary Skills:
+${(candidateProfile.secondary_skills || []).join(', ')}
+
+Tech Stack:
+${(candidateProfile.tech_stack || []).join(', ')}
+
+Strengths:
+${(candidateProfile.strengths || []).join(', ')}
+
+Weaknesses:
+${(candidateProfile.weaknesses || []).join(', ')}
+
+Focus Areas for Interview:
+${(candidateProfile.focus_areas_for_interview || []).join(', ')}
+
+--------------------------------------------------
+QUESTION GENERATION RULES:
+
+PRIORITY ORDER:
+1. First: candidate weaknesses → test gaps
+2. Second: focus areas → reinforce learning
+3. Third: primary skills → depth check
+4. Fourth: secondary skills → breadth check
+
+DIFFICULTY: ${difficulty}
+- beginner → easy/medium questions
+- intermediate → medium questions
+- advanced → medium/hard questions
+
+ROLE-BASED ADAPTATION:
+- Frontend: React, JS, performance, DOM, UI
+- Backend: APIs, DB design, scalability, auth
+- Full Stack: combination of frontend + backend
+- DSA: problem solving, algorithms, data structures
+
+PERSONALIZATION:
+- MUST reference candidate's tech stack
+- SHOULD connect to their projects if possible
+- SHOULD target weaknesses
+- Make questions feel like they are asked specifically to THIS candidate
+- BAD: "What is React?"
+- GOOD: "In your React projects, how would you optimize re-renders caused by unnecessary state updates?"
+
+Previous Questions (DO NOT REPEAT these topics):
+${prevQList}
+
+--------------------------------------------------
+Generate a ${difficulty} difficulty question for a ${role} interview.
+The question must be practical, scenario-based, and feel like a real interview.
+Do NOT provide the answer.`;
+
+      } else {
+        // Fallback: generic prompt when no resume data
+        prompt = `You are an expert technical interviewer for a ${role} position.
+Generate a highly realistic ${difficulty} difficulty interview question.
+Do not provide the answer, just the question.
+Make it practical and scenario-based if possible.`;
+      }
+
       const { object } = await generateObject({
         model: groq('llama-3.3-70b-versatile'),
         schema: z.object({
           question: z.string().describe("The interview question for the candidate"),
           topic: z.string().describe("The core topic this question covers")
         }),
-        prompt: `You are an expert technical interviewer for a ${role} position.
-                 Generate a highly realistic ${difficulty} difficulty interview question.
-                 Do not provide the answer, just the question.
-                 Make it practical and scenario-based if possible.`,
+        prompt,
       });
 
       return Response.json(object);
@@ -30,6 +106,27 @@ export async function POST(req: Request) {
     if (action === 'evaluate_answer') {
       const techStack = body.techStack || "General Software Engineering";
       const previousContext = body.previousContext || "None";
+
+      // ── Build candidate-aware evaluation prompt ──
+      let candidateContext = '';
+      if (candidateProfile) {
+        candidateContext = `
+CANDIDATE PROFILE:
+Experience Level: ${candidateProfile.experience_level || 'intermediate'}
+Primary Skills: ${(candidateProfile.primary_skills || []).join(', ')}
+Weaknesses: ${(candidateProfile.weaknesses || []).join(', ')}
+Focus Areas: ${(candidateProfile.focus_areas_for_interview || []).join(', ')}
+Tech Stack: ${(candidateProfile.tech_stack || []).join(', ')}
+
+Use this profile to:
+- Calibrate scoring relative to experience level
+- Note if the answer addresses known weaknesses
+- Generate the next question targeting remaining weak areas
+- Reference candidate's tech stack in the follow-up question
+`;
+      }
+
+      const prevQList = (previousQuestions || []).map((q: string, i: number) => `${i + 1}. ${q}`).join('\n') || 'None';
 
       const expertPrompt = `You are an expert senior technical interviewer conducting a realistic, high-quality mock interview for engineering students.
 
@@ -101,10 +198,13 @@ The next question MUST:
 - Be relevant to the selected ROLE
 - Consider candidate weaknesses
 - Follow a logical interview flow
-- Avoid repeating topics
+- Avoid repeating topics from previous questions
 - Match next_difficulty
 - Feel natural and conversational
 - Prefer real-world or scenario-based questions
+
+Previously Asked Questions (DO NOT REPEAT):
+${prevQList}
 
 --------------------------------------------------
 🧠 QUESTION TYPE LOGIC:
@@ -134,6 +234,8 @@ Use them to:
 Role: ${role}
 Primary Tech Stack: ${techStack}
 Current Difficulty: ${difficulty}
+
+${candidateContext}
 
 Previous Interactions:
 ${previousContext}

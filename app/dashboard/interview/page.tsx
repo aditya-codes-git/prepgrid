@@ -21,6 +21,10 @@ export default function InterviewEntryPage() {
 
   const handleStart = () => {
     if (!selectedRole) return
+    // Persist resume analysis for the session to use
+    if (resumeData) {
+      sessionStorage.setItem('prepgrid_resume', JSON.stringify(resumeData))
+    }
     router.push(`/dashboard/interview/session?role=${selectedRole}`)
   }
 
