@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth-context'
-import { X, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft, Sparkles } from 'lucide-react'
+import { X, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft, Sparkles, RotateCcw, ShieldCheck } from 'lucide-react'
 import { InteractiveRobotSpline } from '@/components/blocks/interactive-3d-robot'
 import { checkAdminCredentials } from '../actions/admin-auth'
 
@@ -113,6 +113,14 @@ export default function AuthPage() {
     }
   }
 
+  const handleClear = () => {
+    setEmail('')
+    setPassword('')
+    setName('')
+    setError('')
+    setSuccess('')
+  }
+
   if (authLoading || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050505]">
@@ -188,11 +196,34 @@ export default function AuthPage() {
                 ? 'Join PrepGrid and start mastering technical interviews with AI precision.'
                 : 'Authenticate with system credentials to access the administrative dashboard.'}
             </p>
+            {mode === 'admin' && (
+              <div className="mt-6 p-4 rounded-xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">Admin Email</span>
+                    <span className="text-[10px] font-bold text-primary">admin@prepgrid.com</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">Admin Pass</span>
+                    <span className="text-[10px] font-bold text-primary">admin</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-5">
             {mode !== 'admin' && (
               <>
+                {/* Admin Quick Access */}
+                <button 
+                  onClick={() => setMode('admin')} 
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black tracking-[0.2em] text-primary hover:text-white bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/20 transition-all duration-300 uppercase group mb-2"
+                >
+                  <ShieldCheck className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  Admin Access Portal
+                </button>
+
                 {/* Google OAuth */}
                 <button
                   onClick={handleGoogleAuth}
@@ -285,6 +316,17 @@ export default function AuthPage() {
                   mode === 'login' ? 'SIGN IN' : mode === 'signup' ? 'CREATE ACCOUNT' : 'ENTER ADMIN PORTAL'
                 )}
               </button>
+
+              {mode === 'admin' && !loading && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-black tracking-[0.2em] text-muted-foreground hover:text-white transition-all duration-300 uppercase group"
+                >
+                  <RotateCcw className="w-3 h-3 group-hover:rotate-[-180deg] transition-transform duration-500" />
+                  Clear Admin Credentials
+                </button>
+              )}
             </form>
 
             <div className="pt-8 flex flex-col gap-4 text-center">
@@ -313,9 +355,6 @@ export default function AuthPage() {
                       </>
                     )}
                   </p>
-                  <button onClick={() => setMode('admin')} className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground font-bold uppercase tracking-wider transition-colors mt-4">
-                    Admin Access
-                  </button>
                 </>
               ) : (
                 <button onClick={() => setMode('login')} className="text-xs text-primary hover:text-white font-bold tracking-tight uppercase transition-colors">
