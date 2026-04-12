@@ -76,26 +76,48 @@ export default function PracticeHubPage() {
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-6 bg-[#050505] p-5 rounded-2xl border border-white/10 shadow-xl">
-          <div className="relative w-16 h-16 rounded-full border-4 border-white/5 flex items-center justify-center">
-            {/* Simple CSS ring equivalent */}
-            <svg className="absolute inset-0 w-full h-full transform -rotate-90">
-              <circle cx="30" cy="30" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-white/5" />
+        <div className="relative z-10 flex items-center gap-6 bg-[#0a0a0c]/60 backdrop-blur-xl p-5 rounded-2xl border border-white/10 shadow-2xl overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+          
+          <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
+            {/* SVG Progress Ring */}
+            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]">
+              <defs>
+                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#6366f1" />
+                </linearGradient>
+              </defs>
+              {/* Background Ring */}
               <circle 
-                cx="30" cy="30" r="28" 
+                cx="50" cy="50" r="42" 
                 stroke="currentColor" 
-                strokeWidth="4" 
+                strokeWidth="8" 
                 fill="transparent" 
-                className="text-blue-500 transition-all duration-1000 ease-out" 
-                strokeDasharray="176" 
-                strokeDashoffset={176 - (176 * progressPercent) / 100}
+                className="text-white/5" 
+              />
+              {/* Progress Ring */}
+              <circle 
+                cx="50" cy="50" r="42" 
+                stroke="url(#progressGradient)" 
+                strokeWidth="8" 
+                strokeLinecap="round"
+                fill="transparent" 
+                className="transition-all duration-1000 ease-out" 
+                strokeDasharray="264" 
+                strokeDashoffset={264 - (264 * progressPercent) / 100}
               />
             </svg>
-            <span className="font-bold text-lg text-white">{totalSolved}</span>
+            <div className="relative flex flex-col items-center justify-center leading-none">
+              <span className="text-2xl font-black text-white">{totalSolved}</span>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-bold text-white mb-0.5">Problems Solved</p>
-            <p className="text-xs text-muted-foreground">Out of {totalProblems} available</p>
+
+          <div className="relative z-10">
+            <h3 className="text-base font-black text-white tracking-tight">Problems Solved</h3>
+            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+              <span className="text-blue-400 font-bold">{progressPercent}%</span> of {totalProblems} available
+            </p>
           </div>
         </div>
       </section>
