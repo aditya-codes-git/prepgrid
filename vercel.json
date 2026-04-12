@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "pnpm install",
+  "devCommand": "next dev",
+  "regions": ["sfo1"],
+  "env": {
+    "NODE_VERSION": "22"
+  }
+}
