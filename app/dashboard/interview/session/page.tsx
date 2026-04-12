@@ -11,8 +11,16 @@ type SessionState = 'loading' | 'question' | 'evaluating' | 'feedback' | 'finish
 interface Feedback {
   score: number;
   strengths: string[];
-  improvements: string[];
-  ideal_answer: string;
+  weaknesses: string[];
+  improvement: string[];
+  confidence: string;
+  topic: string;
+  subtopic: string;
+  evaluation_summary: string;
+  next_difficulty: string;
+  next_question: string;
+  question_type: string;
+  expected_answer_points: string[];
 }
 
 export default function InterviewSessionPage() {
@@ -92,8 +100,16 @@ function SessionContent() {
       setFeedback({
         score: 7,
         strengths: ["Clear communication", "Addressed the core concept"],
-        improvements: ["Could be more detailed", "Provide concrete examples"],
-        ideal_answer: "An ideal answer would systematically cover XYZ."
+        weaknesses: ["Lacked deep technical details"],
+        improvement: ["Could be more detailed", "Provide concrete examples"],
+        confidence: "medium",
+        topic: "General",
+        subtopic: "General",
+        evaluation_summary: "A decent answer but needs more depth.",
+        next_difficulty: "Medium",
+        next_question: "Can you provide an example of how you used this in a real project?",
+        question_type: "follow-up",
+        expected_answer_points: ["Mention real project", "Explain implementation Details"]
       })
       setCumulativeScore(prev => prev + 7)
       setState('feedback')
@@ -105,15 +121,14 @@ function SessionContent() {
       setState('finished')
       await saveSessionToDB()
     } else {
-      // Adjust difficulty based on score
-      const lastScore = feedback?.score || 5
-      if (lastScore > 7) setDifficulty('Hard')
-      else if (lastScore < 5) setDifficulty('Easy')
-
+      // Use dynamically generated difficulty and question
+      if (feedback?.next_difficulty) setDifficulty(feedback.next_difficulty)
+      if (feedback?.next_question) setCurrentQuestion(feedback.next_question)
+      
       setQuestionCount(prev => prev + 1)
       setAnswer('')
       setFeedback(null)
-      setState('loading')
+      setState('question') // Go straight to the next question
     }
   }
 
@@ -130,7 +145,8 @@ function SessionContent() {
       score: normalizedScore,
       feedback: {
         last_strengths: feedback?.strengths,
-        last_improvements: feedback?.improvements
+        last_improvements: feedback?.improvement,
+        topic_trend: feedback?.topic
       }
     })
   }
@@ -250,19 +266,30 @@ function SessionContent() {
                   <Target className="w-4 h-4" /> Areas to Improve
                 </h4>
                 <ul className="list-disc pl-5 text-sm text-yellow-100/70 space-y-1">
-                  {feedback.improvements.map((s, i) => <li key={i}>{s}</li>)}
+                  {feedback.improvement.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/[0.02] border border-white/10 p-6 rounded-2xl">
-            <h4 className="text-sm font-bold text-white mb-3 tracking-wide flex items-center gap-2">
-              <BrainCircuit className="w-4 h-4 text-primary" /> Ideal Answer Structure
-            </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-              {feedback.ideal_answer}
-            </p>
+          <div className="bg-white/[0.02] border border-white/10 p-6 rounded-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-white mb-3 tracking-wide flex items-center gap-2">
+                <BrainCircuit className="w-4 h-4 text-primary" /> Evaluation Summary
+              </h4>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {feedback.evaluation_summary}
+              </p>
+            </div>
+            
+            <div className="pt-4 border-t border-white/5">
+              <h4 className="text-sm font-bold text-white mb-2 tracking-wide flex items-center gap-2">
+                Expected Answer Points (Next Question)
+              </h4>
+              <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                {feedback.expected_answer_points.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+            </div>
           </div>
 
           <div className="flex justify-end pt-4 border-t border-white/5">
