@@ -66,24 +66,29 @@ function SessionContent() {
 
   const fetchQuestion = async () => {
     try {
-      const res = await fetch('/api/interview', {
+      const res = await fetch('/api/interview/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'generate_question',
           role,
           difficulty,
-          candidateProfile: resumeProfile,
-          previousQuestions
+          resumeData: resumeProfile || { primary_skills: [], tech_stack: [], weaknesses: [] },
+          user_id: user?.id
         })
       })
       const data = await res.json()
-      setCurrentQuestion(data.question)
-      setPreviousQuestions(prev => [...prev, data.question])
+      
+      let startQuestion = data.question
+      if (!startQuestion) {
+        startQuestion = "Let's begin: explain a concept from your domain."
+      }
+      
+      setCurrentQuestion(startQuestion)
+      setPreviousQuestions(prev => [...prev, startQuestion])
       setState('question')
     } catch (err) {
       console.error(err)
-      setCurrentQuestion('Explain the principles of RESTful APIs and how you design them for scalability.')
+      setCurrentQuestion("Let's begin: explain a concept from your domain.")
       setState('question')
     }
   }
