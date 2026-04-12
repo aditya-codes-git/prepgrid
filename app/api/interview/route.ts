@@ -17,85 +17,133 @@ export async function POST(req: Request) {
       let prompt: string;
 
       if (candidateProfile) {
-        const prevQList = (previousQuestions || []).map((q: string, i: number) => `${i + 1}. ${q}`).join('\n') || 'None yet';
-
         prompt = `You are a senior technical interviewer at a top product-based company.
 
-Generate ONE highly personalized, realistic interview question for this specific candidate.
+You are starting a NEW mock interview session.
+Your job is to generate the FIRST interview question based on the candidate profile.
 
 --------------------------------------------------
 CANDIDATE PROFILE:
 
 Role: ${role}
+Difficulty: ${difficulty}
 Experience Level: ${candidateProfile.experience_level || 'intermediate'}
 
 Primary Skills:
 ${(candidateProfile.primary_skills || []).join(', ')}
 
-Secondary Skills:
-${(candidateProfile.secondary_skills || []).join(', ')}
-
 Tech Stack:
 ${(candidateProfile.tech_stack || []).join(', ')}
-
-Strengths:
-${(candidateProfile.strengths || []).join(', ')}
 
 Weaknesses:
 ${(candidateProfile.weaknesses || []).join(', ')}
 
-Focus Areas for Interview:
-${(candidateProfile.focus_areas_for_interview || []).join(', ')}
+--------------------------------------------------
+QUESTION GENERATION LOGIC:
+
+- Prefer primary skills
+- Consider weaknesses (but don’t start too hard)
+- Use tech stack mentioned
+- Make it feel personalized
+
+Example:
+"In your React projects, how do you handle unnecessary re-renders?"
 
 --------------------------------------------------
-QUESTION GENERATION RULES:
+DIFFICULTY RULE:
 
-PRIORITY ORDER:
-1. First: candidate weaknesses → test gaps
-2. Second: focus areas → reinforce learning
-3. Third: primary skills → depth check
-4. Fourth: secondary skills → breadth check
-
-DIFFICULTY: ${difficulty}
-- beginner → easy/medium questions
-- intermediate → medium questions
-- advanced → medium/hard questions
-
-ROLE-BASED ADAPTATION:
-- Frontend: React, JS, performance, DOM, UI
-- Backend: APIs, DB design, scalability, auth
-- Full Stack: combination of frontend + backend
-- DSA: problem solving, algorithms, data structures
-
-PERSONALIZATION:
-- MUST reference candidate's tech stack
-- SHOULD connect to their projects if possible
-- SHOULD target weaknesses
-- Make questions feel like they are asked specifically to THIS candidate
-- BAD: "What is React?"
-- GOOD: "In your React projects, how would you optimize re-renders caused by unnecessary state updates?"
-
-Previous Questions (DO NOT REPEAT these topics):
-${prevQList}
+- easy → basic concepts
+- medium → applied understanding
+- hard → real-world / edge cases
 
 --------------------------------------------------
-Generate a ${difficulty} difficulty question for a ${role} interview.
-The question must be practical, scenario-based, and feel like a real interview.
-Do NOT provide the answer.`;
+ROLE-BASED QUESTION FOCUS:
+
+Frontend:
+- React, JS, DOM, performance
+
+Backend:
+- APIs, DB, scalability
+
+Full Stack:
+- mix of frontend + backend
+
+DSA:
+- problem solving
+
+--------------------------------------------------
+FIRST QUESTION STRATEGY:
+
+- Should be approachable
+- Not too tricky
+- Should build confidence
+- Avoid deep system design initially
+
+--------------------------------------------------
+Generate the BEST possible FIRST interview question.`;
 
       } else {
         // Fallback: generic prompt when no resume data
-        prompt = `You are an expert technical interviewer for a ${role} position.
-Generate a highly realistic ${difficulty} difficulty interview question.
-Do not provide the answer, just the question.
-Make it practical and scenario-based if possible.`;
+        prompt = `You are a senior technical interviewer at a top product-based company.
+
+You are starting a NEW mock interview session.
+Your job is to generate the FIRST interview question for the candidate.
+
+--------------------------------------------------
+CONTEXT:
+
+Role: ${role}
+Difficulty: ${difficulty}
+
+--------------------------------------------------
+QUESTION GENERATION LOGIC:
+
+- Generate standard role-based question
+- Keep it clean and relevant
+
+--------------------------------------------------
+DIFFICULTY RULE:
+
+- easy → basic concepts
+- medium → applied understanding
+- hard → real-world / edge cases
+
+--------------------------------------------------
+ROLE-BASED QUESTION FOCUS:
+
+Frontend:
+- React, JS, DOM, performance
+
+Backend:
+- APIs, DB, scalability
+
+Full Stack:
+- mix of frontend + backend
+
+DSA:
+- problem solving
+
+--------------------------------------------------
+FIRST QUESTION STRATEGY:
+
+- Should be approachable
+- Not too tricky
+- Should build confidence
+- Avoid deep system design initially
+
+--------------------------------------------------
+Generate the BEST possible FIRST interview question.`;
       }
 
       const { object } = await generateObject({
         model: groq('llama-3.3-70b-versatile'),
         schema: z.object({
           question: z.string().describe("The interview question for the candidate"),
-          topic: z.string().describe("The core topic this question covers")
+          difficulty: z.enum(["easy", "medium", "hard"]).describe("The difficulty level of the question"),
+          topic: z.string().describe("The core topic this question covers"),
+          subtopic: z.string().describe("The specific concept being tested"),
+          question_type: z.enum(["conceptual", "coding", "scenario", "debugging"]).describe("The type of the question"),
+          expected_answer_points: z.array(z.string()).describe("Key points expected in a good answer")
         }),
         prompt,
       });
