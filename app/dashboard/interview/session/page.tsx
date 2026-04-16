@@ -48,21 +48,45 @@ function SessionContent() {
   const [cumulativeScore, setCumulativeScore] = useState(0)
   const [resumeProfile, setResumeProfile] = useState<any>(null)
   const [previousQuestions, setPreviousQuestions] = useState<string[]>([])
+  const [customQuestions, setCustomQuestions] = useState<string[]>([])
+  const [configLoaded, setConfigLoaded] = useState(false)
 
-  // Load resume data from sessionStorage on mount
+  // Load configuration from sessionStorage on mount
   useEffect(() => {
     try {
-      const stored = sessionStorage.getItem('prepgrid_resume')
-      if (stored) setResumeProfile(JSON.parse(stored))
-    } catch {} // Graceful fallback if no resume data
+      const storedResume = sessionStorage.getItem('prepgrid_resume')
+      if (storedResume) setResumeProfile(JSON.parse(storedResume))
+
+      const storedCustom = sessionStorage.getItem('prepgrid_custom_questions')
+      if (storedCustom) {
+        const parsed = JSON.parse(storedCustom)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomQuestions(parsed)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load session config:', err)
+    } finally {
+      setConfigLoaded(true)
+    }
   }, [])
 
   // Fetch initial question
   useEffect(() => {
+    if (!configLoaded) return
+    
     if (state === 'loading') {
-      fetchQuestion()
+      if (customQuestions.length > 0) {
+        // Use pre-generated industry question
+        const q = customQuestions[0]
+        setCurrentQuestion(q)
+        setPreviousQuestions([q])
+        setState('question')
+      } else {
+        fetchQuestion()
+      }
     }
-  }, [state])
+  }, [state, configLoaded, customQuestions])
 
   const fetchQuestion = async () => {
     try {
@@ -138,18 +162,30 @@ function SessionContent() {
   }
 
   const handleNext = async () => {
-    if (questionCount >= 2) {
+    const totalLimit = customQuestions.length > 0 ? customQuestions.length : 6
+
+    if (questionCount >= totalLimit) {
       setState('finished')
       await saveSessionToDB()
     } else {
-      // Use dynamically generated difficulty and question
-      if (feedback?.next_difficulty) setDifficulty(feedback.next_difficulty)
-      if (feedback?.next_question) setCurrentQuestion(feedback.next_question)
+      // Logic for next question
+      if (customQuestions.length > 0) {
+        const nextQ = customQuestions[questionCount] // next index
+        setCurrentQuestion(nextQ)
+        setPreviousQuestions(prev => [...prev, nextQ])
+      } else {
+        // Fallback to AI suggested question
+        if (feedback?.next_difficulty) setDifficulty(feedback.next_difficulty)
+        if (feedback?.next_question) {
+          setCurrentQuestion(feedback.next_question)
+          setPreviousQuestions(prev => [...prev, feedback.next_question])
+        }
+      }
       
       setQuestionCount(prev => prev + 1)
       setAnswer('')
       setFeedback(null)
-      setState('question') // Go straight to the next question
+      setState('question')
     }
   }
 
@@ -180,13 +216,16 @@ function SessionContent() {
           <BrainCircuit className={`w-16 h-16 text-primary relative z-10 ${state === 'evaluating' ? 'animate-pulse' : ''}`} />
         </div>
         <h2 className="text-2xl font-bold text-white tracking-tight">
-          {state === 'loading' ? 'Generating Question...' : 'Evaluating Answer...'}
+          {state === 'loading' ? 'Preparing Your Question...' : 'Analyzing Your Response...'}
         </h2>
         <p className="text-muted-foreground mt-2 max-w-sm">
           {state === 'loading' 
-            ? `Analyzing ${role} requirements for a ${difficulty} level question.` 
-            : `PrepGrid AI is assessing correctness, depth, and clarity.`}
+            ? `Curating the perfect industry-standard ${role} question for you.` 
+            : `PrepGrid AI is assessing your ${role} knowledge for accuracy and depth.`}
         </p>
+        <div className="mt-8 flex items-center gap-2 text-[10px] font-black text-primary/40 uppercase tracking-[0.2em]">
+          <Loader2 className="w-3 h-3 animate-spin" /> Handled by Groq AI
+        </div>
       </div>
     )
   }
@@ -222,7 +261,7 @@ function SessionContent() {
           </div>
           <div>
             <h2 className="font-bold text-white leading-tight">{role} Interview</h2>
-            <p className="text-xs text-muted-foreground">Question {questionCount} of 2 • {difficulty}</p>
+            <p className="text-xs text-muted-foreground">Question {questionCount} of {customQuestions.length > 0 ? customQuestions.length : 6} • {difficulty}</p>
           </div>
         </div>
         {feedback && (
@@ -249,13 +288,21 @@ function SessionContent() {
               placeholder="Type your detailed answer here..."
               className="w-full h-64 p-6 bg-[#0a0a0c] border border-white/10 rounded-2xl text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all resize-none"
             />
-            <button 
-              onClick={handleSubmit}
-              disabled={!answer.trim()}
-              className="absolute bottom-4 right-4 flex items-center gap-2 px-6 py-2.5 bg-white text-black font-bold rounded-xl transition-all hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Submit Answer <Send className="w-4 h-4" />
-            </button>
+            <div className="absolute bottom-4 right-4 flex items-center gap-3">
+              <button 
+                onClick={() => router.push('/dashboard/interview')}
+                className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all"
+              >
+                Exit Interview
+              </button>
+              <button 
+                onClick={handleSubmit}
+                disabled={!answer.trim()}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white text-black font-bold rounded-xl transition-all hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Submit Answer <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -278,7 +325,7 @@ function SessionContent() {
                   <CheckCircle2 className="w-4 h-4" /> Strengths
                 </h4>
                 <ul className="list-disc pl-5 text-sm text-green-100/70 space-y-1">
-                  {feedback.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                  {feedback.strengths?.map((s, i) => <li key={i}>{s}</li>) || <li className="list-none text-muted-foreground italic">No strengths noted</li>}
                 </ul>
               </div>
 
@@ -287,7 +334,7 @@ function SessionContent() {
                   <Target className="w-4 h-4" /> Areas to Improve
                 </h4>
                 <ul className="list-disc pl-5 text-sm text-yellow-100/70 space-y-1">
-                  {feedback.improvement.map((s, i) => <li key={i}>{s}</li>)}
+                  {feedback.improvement?.map((s, i) => <li key={i}>{s}</li>) || <li className="list-none text-muted-foreground italic">No improvements noted</li>}
                 </ul>
               </div>
             </div>
@@ -308,17 +355,23 @@ function SessionContent() {
                 Expected Answer Points (Next Question)
               </h4>
               <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                {feedback.expected_answer_points.map((p, i) => <li key={i}>{p}</li>)}
+                {feedback.expected_answer_points?.map((p, i) => <li key={i}>{p}</li>) || <li className="list-none text-muted-foreground italic">No guidance points available</li>}
               </ul>
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-white/5">
+          <div className="flex justify-end items-center gap-3 pt-4 border-t border-white/5">
+            <button 
+              onClick={() => router.push('/dashboard/interview')}
+              className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all"
+            >
+              Exit Interview
+            </button>
             <button 
               onClick={handleNext}
               className="flex items-center gap-2 px-8 py-3 bg-white text-black font-bold rounded-xl transition-all hover:scale-105 active:scale-95"
             >
-              {questionCount >= 2 ? 'Finish Session' : 'Next Question'} <ChevronRight className="w-4 h-4" />
+              {questionCount >= (customQuestions.length > 0 ? customQuestions.length : 6) ? 'Finish Session' : 'Next Question'} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 

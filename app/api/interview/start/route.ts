@@ -34,6 +34,11 @@ Tech: ${tech_stack}
 Weaknesses: ${weaknesses}
 `
 
+    if (!process.env.GROQ_API_KEY) {
+      console.error('[ERROR] GROQ_API_KEY is missing in environment variables');
+      return Response.json({ error: "AI configuration error" }, { status: 500 });
+    }
+
     //----------------------------------------
     // USE FETCH INSTEAD OF SDK
     //----------------------------------------
@@ -46,31 +51,49 @@ Weaknesses: ${weaknesses}
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "llama3-70b-8192",
+          model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          response_format: { type: "json_object" }
         }),
       })
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[ERROR] Groq API Start Error (${response.status}):`, errorText);
+        throw new Error(`Groq API Error: ${response.status}`);
+      }
+
       const data = await response.json()
       let raw = data?.choices?.[0]?.message?.content || ""
+      
+      console.log(`[DEBUG] Start Question Raw Content for ${role}:`, raw)
+
+      if (!raw) {
+        console.error('[ERROR] Groq returned empty response for start question')
+        throw new Error('Empty AI response')
+      }
 
       // CLEAN RESPONSE
       raw = raw.replace(/```json/g, "").replace(/```/g, "").trim()
 
       parsed = JSON.parse(raw)
+      console.log(`[DEBUG] Parsed Start Question:`, parsed)
     } catch (err) {
-      // FALLBACK IF JSON FAILS
+      console.error("[ERROR] Groq Parse/API Error:", err)
+      // FALLBACK IF JSON FAILS OR API ERROR
       parsed = {
-        question: "Explain a key concept related to your role.",
-        difficulty: "medium",
-        topic: "general",
-        subtopic: "basics",
+        question: `Can you introduce yourself and explain what you consider the most challenging technical project you've worked on related to ${role}?`,
+        difficulty: difficulty || "medium",
+        topic: "Experience",
+        subtopic: "Introduction",
       }
     }
 
     // FINAL SAFETY CHECK
     if (!parsed.question || parsed.question.length < 5) {
-      parsed.question = "Explain a core concept related to your role."
+      console.warn('[WARN] Question too short, using secondary fallback')
+      parsed.question = `Let's start with your expertise: What are the fundamental principles of being a great ${role}?`
     }
 
     //----------------------------------------

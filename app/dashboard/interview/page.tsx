@@ -66,12 +66,12 @@ function ModeSelector({
             <h3 className={`text-lg font-bold mb-1.5 transition-colors ${
               mode === 'resume' ? 'text-white' : 'text-white/70 group-hover:text-white/90'
             }`}>
-              Resume-Based Interview
+              Resume-Based
             </h3>
             <p className={`text-sm leading-relaxed transition-colors ${
               mode === 'resume' ? 'text-indigo-200/60' : 'text-muted-foreground'
             }`}>
-              Upload your resume to generate personalized interview questions tailored to your experience.
+              Tailored mock interview based on your profile analysis.
             </p>
 
             {/* Selection indicator */}
@@ -119,12 +119,12 @@ function ModeSelector({
             <h3 className={`text-lg font-bold mb-1.5 transition-colors ${
               mode === 'manual' ? 'text-white' : 'text-white/70 group-hover:text-white/90'
             }`}>
-              Quick Start Interview
+              Quick Start
             </h3>
             <p className={`text-sm leading-relaxed transition-colors ${
               mode === 'manual' ? 'text-amber-200/60' : 'text-muted-foreground'
             }`}>
-              Choose a role and start instantly without uploading a resume. Great for practice sessions.
+              Pick a general track and start practicing instantly.
             </p>
 
             <div className={`mt-4 flex items-center gap-2 text-xs font-semibold transition-all ${
@@ -326,13 +326,45 @@ function RoleSelectionSection({
   selectedRole,
   onSelect,
   resumeData,
+  questionBank,
+  setQuestionBank,
+  bankLoading,
+  setBankLoading,
 }: {
   roles: typeof ROLES
   selectedRole: string
   onSelect: (name: string) => void
   resumeData: any
+  questionBank: Record<string, string[]>
+  setQuestionBank: React.Dispatch<React.SetStateAction<Record<string, string[]>>>
+  bankLoading: string | null
+  setBankLoading: React.Dispatch<React.SetStateAction<string | null>>
 }) {
-  // Check if a role is "matched" from resume analysis
+  const fetchIndustryQuestions = async (roleName: string) => {
+    if (questionBank[roleName]) {
+      const next = { ...questionBank }
+      delete next[roleName]
+      setQuestionBank(next)
+      return
+    }
+    setBankLoading(roleName)
+    try {
+      const res = await fetch('/api/questions/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: roleName }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setQuestionBank(prev => ({ ...prev, [roleName]: data.questions || [] }))
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Failed to fetch questions')
+    } finally {
+      setBankLoading(null)
+    }
+  }
+
   const isMatched = (roleId: string): boolean => {
     if (!resumeData?.recommended_roles) return false
     const recs = resumeData.recommended_roles.map((r: string) => r.toLowerCase())
@@ -346,7 +378,7 @@ function RoleSelectionSection({
   }
 
   return (
-    <div className="w-full bg-[#0a0a0c] border border-white/[0.06] rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
+    <div className="w-full bg-[#0a0a0c] border border-white/[0.06] rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden text-left">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-bold text-white">Select Interview Track</h2>
         {resumeData && (
@@ -363,48 +395,91 @@ function RoleSelectionSection({
           const matched = isMatched(role.id)
 
           return (
-            <button
-              key={role.id}
-              onClick={() => onSelect(role.name)}
-              className={`group relative flex items-start gap-4 p-5 rounded-xl border-2 text-left transition-all duration-200 ${
-                isSelected
-                  ? 'border-primary/60 bg-primary/[0.06] shadow-[0_0_24px_rgba(99,102,241,0.1)] scale-[1.01]'
-                  : 'border-white/[0.05] bg-white/[0.015] hover:border-white/[0.1] hover:bg-white/[0.03]'
-              }`}
-            >
-              {/* Matched badge */}
-              {matched && (
-                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/25">
-                  <Sparkles className="w-2.5 h-2.5 text-indigo-400" />
-                  <span className="text-[9px] font-black text-indigo-400 uppercase tracking-wider">
-                    Matched
-                  </span>
-                </div>
-              )}
-
+            <div key={role.id} className="flex flex-col gap-2">
               <div
-                className={`p-3 rounded-xl flex-shrink-0 transition-colors bg-gradient-to-br ${
+                onClick={() => onSelect(role.name)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(role.name)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className={`group relative flex items-start gap-4 p-5 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                   isSelected
-                    ? 'from-primary/25 to-primary/10 text-primary'
-                    : `${role.color} text-muted-foreground group-hover:text-white/60`
+                    ? 'border-primary/60 bg-primary/[0.06] shadow-[0_0_24px_rgba(99,102,241,0.1)] scale-[1.01]'
+                    : 'border-white/[0.05] bg-white/[0.015] hover:border-white/[0.1] hover:bg-white/[0.03]'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-              </div>
+                {matched && (
+                  <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/25">
+                    <Sparkles className="w-2.5 h-2.5 text-indigo-400" />
+                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-wider">
+                      Matched
+                    </span>
+                  </div>
+                )}
 
-              <div className="min-w-0">
-                <h3
-                  className={`font-bold text-sm transition-colors ${
-                    isSelected ? 'text-white' : 'text-white/70 group-hover:text-white/90'
+                <div
+                  className={`p-3 rounded-xl flex-shrink-0 transition-colors bg-gradient-to-br ${
+                    isSelected
+                      ? 'from-primary/25 to-primary/10 text-primary'
+                      : `${role.color} text-muted-foreground group-hover:text-white/60`
                   }`}
                 >
-                  {role.name}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">
-                  {role.desc}
-                </p>
+                  <Icon className="w-5 h-5" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3
+                      className={`font-bold text-sm transition-colors ${
+                        isSelected ? 'text-white' : 'text-white/70 group-hover:text-white/90'
+                      }`}
+                    >
+                      {role.name}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    {role.desc}
+                  </p>
+
+                  <div className="mt-4 pt-3 border-t border-white/[0.04]">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        fetchIndustryQuestions(role.name)
+                      }}
+                      className="flex items-center gap-1.5 text-[10px] font-black text-primary/70 hover:text-primary transition-colors uppercase tracking-widest"
+                    >
+                      {bankLoading === role.name ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      {questionBank[role.name] ? 'Hide Questions' : 'View Industry Questions'}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </button>
+
+              {questionBank[role.name] && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-2">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.05]">
+                    <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">
+                       Standard Prep Set (6 Questions)
+                    </span>
+                  </div>
+                  {questionBank[role.name].map((q, i) => (
+                    <div key={i} className="flex gap-3 text-left">
+                       <span className="shrink-0 text-[10px] font-black text-primary/40 mt-0.5">0{i+1}</span>
+                       <p className="text-[11px] text-white/70 leading-relaxed">{q}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )
         })}
       </div>
@@ -415,6 +490,8 @@ function RoleSelectionSection({
 /* ═══════════════════════════════════════════════════════════════
    MAIN PAGE COMPONENT
    ═══════════════════════════════════════════════════════════════ */
+import { RefreshCcw } from 'lucide-react'
+
 export default function InterviewEntryPage() {
   const router = useRouter()
   const [mode, setMode] = useState<'resume' | 'manual'>('resume')
@@ -423,11 +500,13 @@ export default function InterviewEntryPage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [resumeData, setResumeData] = useState<any>(null)
   const [analyzed, setAnalyzed] = useState(false)
+  const [questionBank, setQuestionBank] = useState<Record<string, string[]>>({})
+  const [bankLoading, setBankLoading] = useState<string | null>(null)
 
   // Restore mode from sessionStorage on mount
   useEffect(() => {
     const saved = sessionStorage.getItem('prepgrid_mode')
-    if (saved === 'resume' || saved === 'manual') setMode(saved)
+    if (saved === 'resume' || saved === 'manual') setMode(saved as any)
   }, [])
 
   // Persist mode
@@ -443,11 +522,21 @@ export default function InterviewEntryPage() {
 
   const handleStart = () => {
     if (!selectedRole) return
+    
+    // Clear any previous custom questions
+    sessionStorage.removeItem('prepgrid_custom_questions')
+
     if (mode === 'manual') {
       sessionStorage.removeItem('prepgrid_resume')
     } else if (resumeData) {
       sessionStorage.setItem('prepgrid_resume', JSON.stringify(resumeData))
     }
+
+    // Pass the industry questions if they were generated
+    if (questionBank[selectedRole]) {
+      sessionStorage.setItem('prepgrid_custom_questions', JSON.stringify(questionBank[selectedRole]))
+    }
+
     router.push(`/dashboard/interview/session?role=${selectedRole}`)
   }
 
@@ -578,9 +667,14 @@ export default function InterviewEntryPage() {
             selectedRole={selectedRole}
             onSelect={setSelectedRole}
             resumeData={resumeData}
+            questionBank={questionBank}
+            setQuestionBank={setQuestionBank}
+            bankLoading={bankLoading}
+            setBankLoading={setBankLoading}
           />
         </div>
       )}
+
 
       {/* ── START BUTTON ── */}
       {(mode === 'manual' || analyzed) && (
