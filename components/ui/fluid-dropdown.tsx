@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { motion, AnimatePresence, MotionConfig } from "framer-motion"
-import { ChevronDown, Braces, Coffee, Cpu, Zap, Terminal, Code2 } from "lucide-react"
+import { ChevronDown, Coffee, Code2, Terminal, Braces } from "lucide-react"
 
 // Utility function for className merging
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -65,11 +65,10 @@ export interface LanguageOption {
 }
 
 const languages: LanguageOption[] = [
-  { id: "python", label: "Python", icon: Terminal, color: "#3776AB" },
+  { id: "java", label: "Java", icon: Coffee, color: "#ED8B00" },
+  { id: "cpp", label: "C++", icon: Code2, color: "#00599C" },
+  { id: "python", label: "Python 3", icon: Terminal, color: "#3776AB" },
   { id: "javascript", label: "JavaScript", icon: Braces, color: "#F7DF1E" },
-  { id: "java", label: "Java", icon: Coffee, color: "#007396" },
-  { id: "cpp", label: "C++", icon: Cpu, color: "#00599C" },
-  { id: "c", label: "C", icon: Zap, color: "#A8B9CC" },
 ]
 
 // Icon wrapper with animation
@@ -124,13 +123,13 @@ const itemVariants = {
 
 interface FluidDropdownProps {
   value: string;
-  onSelect: (value: any) => void;
+  onSelect: (id: string) => void;
 }
 
 // Main component
 export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false)
-  const selectedLanguage = languages.find(l => l.id === value) || languages[0]
+  const selectedLanguage = languages.find(l => l.id === value) || languages[2] // Default to Python if not found
   const [hoveredLang, setHoveredLang] = React.useState<string | null>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
@@ -152,18 +151,18 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
             variant="outline"
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
-              "w-full justify-between bg-neutral-900 text-neutral-400 px-4",
+              "w-full justify-between bg-neutral-900 text-neutral-400 rounded-lg",
               "hover:bg-neutral-800 hover:text-neutral-200",
               "focus:ring-2 focus:ring-neutral-700 focus:ring-offset-2 focus:ring-offset-black",
               "transition-all duration-200 ease-in-out",
               "border border-transparent focus:border-neutral-700",
-              "h-10 rounded-xl",
+              "h-10",
               isOpen && "bg-neutral-800 text-neutral-200",
             )}
             aria-expanded={isOpen}
             aria-haspopup="true"
           >
-            <span className="flex items-center font-bold">
+            <span className="flex items-center">
               <IconWrapper 
                 icon={selectedLanguage.icon} 
                 isHovered={false} 
@@ -183,7 +182,7 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
           <AnimatePresence>
             {isOpen && (
               <motion.div
-                initial={{ opacity: 0, y: 0, height: 0 }}
+                initial={{ opacity: 1, y: 0, height: 0 }}
                 animate={{
                   opacity: 1,
                   y: 0,
@@ -210,10 +209,10 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                 onKeyDown={handleKeyDown}
               >
                 <motion.div
-                  className="w-full rounded-2xl border border-white/5 bg-[#0a0a0c] p-1 shadow-2xl backdrop-blur-xl"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 p-1 shadow-2xl"
                   initial={{ borderRadius: 8 }}
                   animate={{
-                    borderRadius: 16,
+                    borderRadius: 12,
                     transition: { duration: 0.2 },
                   }}
                   style={{ transformOrigin: "top" }}
@@ -226,10 +225,10 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                   >
                     <motion.div
                       layoutId="hover-highlight"
-                      className="absolute inset-x-1 bg-white/5 rounded-xl"
+                      className="absolute inset-x-1 bg-neutral-800 rounded-lg"
                       animate={{
-                        y: languages.findIndex((l) => (hoveredLang || selectedLanguage.id) === l.id) * 44,
-                        height: 44,
+                        y: languages.findIndex((l) => (hoveredLang || selectedLanguage.id) === l.id) * 40,
+                        height: 40,
                       }}
                       transition={{
                         type: "spring",
@@ -237,7 +236,7 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                         duration: 0.5,
                       }}
                     />
-                    {languages.map((lang) => (
+                    {languages.map((lang, index) => (
                       <motion.button
                         key={lang.id}
                         onClick={() => {
@@ -247,11 +246,11 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                         onHoverStart={() => setHoveredLang(lang.id)}
                         onHoverEnd={() => setHoveredLang(null)}
                         className={cn(
-                          "relative flex w-full items-center px-4 py-3 text-sm rounded-xl",
+                          "relative flex w-full items-center px-4 py-2.5 text-sm rounded-lg",
                           "transition-colors duration-150",
                           "focus:outline-none",
                           selectedLanguage.id === lang.id || hoveredLang === lang.id
-                            ? "text-neutral-100"
+                            ? "text-neutral-200"
                             : "text-neutral-400",
                         )}
                         whileTap={{ scale: 0.98 }}
@@ -262,7 +261,7 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                           isHovered={hoveredLang === lang.id}
                           color={lang.color}
                         />
-                        <span className="font-bold">{lang.label}</span>
+                        {lang.label}
                       </motion.button>
                     ))}
                   </motion.div>

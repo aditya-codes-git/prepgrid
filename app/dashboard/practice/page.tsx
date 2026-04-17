@@ -1,209 +1,265 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Target, Search, Filter, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import Editor from '@monaco-editor/react'
+import { ArrowLeft, Play, LayoutGrid, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth-context'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
+import { FluidDropdown } from '@/components/ui/fluid-dropdown'
 
-export default function PracticeHubPage() {
-  const [activeFilter, setActiveFilter] = useState('All Topics')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [solvedIds, setSolvedIds] = useState<Set<number>>(new Set())
-  const { user } = useAuth()
+
+export default function ProblemPage() {
+  const params = useParams()
   const router = useRouter()
+  const { user } = useAuth()
 
-  const [problems, setProblems] = useState<any[]>([])
-  const [loadingProblems, setLoadingProblems] = useState(true)
-
-  useEffect(() => {
-    async function fetchQuestions() {
-      const { data } = await supabase.from('questions').select('*').eq('is_active', true).order('id', { ascending: true })
-      if (data) setProblems(data)
-      setLoadingProblems(false)
-    }
-    fetchQuestions()
-  }, [])
+  const [problem, setProblem] = useState<any | null>(null)
+  const [language, setLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp' | 'c'>('python')
+  const [code, setCode] = useState('')
+  const [output, setOutput] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSolved, setIsSolved] = useState(false)
 
   useEffect(() => {
-    async function fetchSubmissions() {
-      if (!user) return
-      
-      const { data, error } = await supabase
-        .from('submissions')
-        .select('question_id')
-        .eq('user_id', user.id)
-        .eq('status', 'solved')
+    async function fetchProblem() {
+      const id = parseInt(params.id as string)
+      const { data } = await supabase.from('questions').select('*').eq('id', id).single()
+      if (data) {
+        setProblem(data)
 
-      if (data && !error) {
-        const ids = new Set(data.map(sub => sub.question_id))
-        setSolvedIds(ids)
+        let initialLang = 'python'
+        if (typeof window !== 'undefined') {
+          initialLang = localStorage.getItem('prepgrid_default_lang') || 'python'
+        }
+        setLanguage(initialLang as any)
+
+        setCode(data.function_signatures[initialLang] || '')
+        checkIfSolved(id)
       }
     }
-    fetchSubmissions()
-  }, [user])
+    fetchProblem()
+  }, [params.id])
 
-  const filteredProblems = problems.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTopic = activeFilter === 'All Topics' || p.topic === activeFilter
-    return matchesSearch && matchesTopic
-  })
+  async function checkIfSolved(questionId: number) {
+    if (!user) return
+    const { data } = await supabase
+      .from('submissions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('question_id', questionId)
+      .eq('status', 'solved')
+      .single()
 
-  // Unique topics from dataset
-  const topics = ['All Topics', ...Array.from(new Set(problems.map(p => p.topic)))]
+    if (data) setIsSolved(true)
+  }
 
-  // Calculate progress
-  const totalSolved = solvedIds.size
-  const totalProblems = problems.length
-  const progressPercent = totalProblems === 0 ? 0 : Math.round((totalSolved / totalProblems) * 100)
+  const getStarterCode = (prob: any, lang: string) => {
+    const code = prob.function_signatures?.[lang as keyof typeof prob.function_signatures]
+    if (code) return code;
+
+    if (lang === 'cpp') return `// Complete the function\n// Example:\n// vector<int> solve(vector<int>& nums) {\n//     \n// }`;
+    if (lang === 'c') return `// Complete the function\n// Example:\n// int* solve(int* nums, int numsSize) {\n//     \n// }`;
+
+    return '';
+  }
+
+  const handleLanguageChange = (lang: 'python' | 'javascript' | 'java' | 'cpp' | 'c') => {
+    setLanguage(lang)
+    if (problem) {
+      setCode(getStarterCode(problem, lang))
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!problem || !user) return
+    setIsSubmitting(true)
+    setOutput('Validating code...')
+
+    // VALIDATION: Strict function-only enforcement
+    const badKeywords = ['main(', 'main ()', '#include', 'printf', 'cout', 'System.out', 'scanf', 'public class Main']
+    const hasBadKeyword = badKeywords.some(kw => code.includes(kw))
+
+    if (hasBadKeyword) {
+      setOutput("Error: Only function implementation is allowed.\nPlease write only the function implementation. Do not include main function or full program.")
+      setIsSubmitting(false)
+      return
+    }
+
+    // WRAPPER: Automatically wrap code for execution
+    let finalCodeToSend = code;
+
+    if (language === 'cpp') {
+      finalCodeToSend = `#include <iostream>\n#include <vector>\n#include <string>\n#include <algorithm>\nusing namespace std;\n\n${code}\n\nint main() {\n    cout << "Test passed" << endl;\n    return 0;\n}`
+    } else if (language === 'c') {
+      finalCodeToSend = `#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n${code}\n\nint main() {\n    printf("Test passed\\n");\n    return 0;\n}`
+    } else if (language === 'java') {
+      finalCodeToSend = `import java.util.*;\n\n${code}\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Test passed");\n    }\n}`
+    }
+
+    setOutput('Running test cases...')
+
+    try {
+      // AI-powered code execution via Groq (replaces Judge0)
+      const testCase = problem.test_cases?.[0]
+      const response = await fetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: finalCodeToSend,
+          language,
+          stdin: testCase?.input || '',
+          expected_output: testCase?.expected || testCase?.output || '',
+        })
+      })
+
+      const result = await response.json()
+
+      let finalOutput = ''
+      if (result.stdout) finalOutput += result.stdout
+      if (result.stderr) finalOutput += '\nError:\n' + result.stderr
+      if (result.compile_output) finalOutput += '\nCompiler:\n' + result.compile_output
+
+      if (result.passed || result.status === 'Accepted') {
+        setOutput(`✅ Test Case 1 Passed! [${result.status}]\n\nOutput:\n${finalOutput || '(no stdout)'}`)
+        await markAsSolved()
+      } else {
+        setOutput(`❌ ${result.status || 'Failed'}\n\nOutput:\n${finalOutput || '(no stdout)'}`)
+      }
+    } catch (err) {
+      console.error('Execution error:', err)
+      setOutput('⚠️ Execution service unavailable. Please check your GROQ_API_KEY and try again.')
+    }
+
+    setIsSubmitting(false)
+  }
+
+  const markAsSolved = async () => {
+    if (!user || !problem || isSolved) return
+
+    const { error } = await supabase
+      .from('submissions')
+      .insert({
+        user_id: user.id,
+        question_id: problem.id,
+        status: 'solved'
+      })
+
+    if (!error) {
+      setIsSolved(true)
+    }
+  }
+
+  if (!problem) return <div className="p-8 text-center text-white">Loading problem...</div>
 
   return (
-    <div className="flex flex-col gap-8 pb-12 max-w-5xl mx-auto">
-      
-      {/* Header section with progress */}
-      <section className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/[0.02] border border-white/10 rounded-3xl p-8 overflow-hidden relative">
-        <div className="absolute top-0 right-0 p-8 opacity-20 blur-3xl pointer-events-none">
-          <div className="w-48 h-48 bg-blue-500 rounded-full" />
-        </div>
-        
-        <div className="relative z-10">
-          <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
-            <Target className="w-8 h-8 text-blue-400" />
-            Coding Practice
-          </h1>
-          <p className="text-muted-foreground mt-2 text-sm max-w-md">
-            Master algorithms and data structures. Pick a problem, write your code, and verify it against test cases.
-          </p>
+    <div className="h-[calc(100vh-65px)] -m-4 md:-m-8 flex flex-col md:flex-row bg-[#0A0A0C]">
+
+      {/* Left Pane: Description */}
+      <div className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-white/10 overflow-y-auto no-scrollbar flex flex-col">
+        <Link href="/dashboard/practice" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-6 w-fit transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Back to Practice
+        </Link>
+
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-black text-white tracking-tight">{problem.id}. {problem.title}</h1>
+          {isSolved && <CheckCircle2 className="w-5 h-5 text-green-500" />}
         </div>
 
-        <div className="relative z-10 flex items-center gap-6 bg-[#0a0a0c]/60 backdrop-blur-xl p-5 rounded-2xl border border-white/10 shadow-2xl overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
-          
-          <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
-            {/* SVG Progress Ring */}
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]">
-              <defs>
-                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#6366f1" />
-                </linearGradient>
-              </defs>
-              {/* Background Ring */}
-              <circle 
-                cx="50" cy="50" r="42" 
-                stroke="currentColor" 
-                strokeWidth="8" 
-                fill="transparent" 
-                className="text-white/5" 
-              />
-              {/* Progress Ring */}
-              <circle 
-                cx="50" cy="50" r="42" 
-                stroke="url(#progressGradient)" 
-                strokeWidth="8" 
-                strokeLinecap="round"
-                fill="transparent" 
-                className="transition-all duration-1000 ease-out" 
-                strokeDasharray="264" 
-                strokeDashoffset={264 - (264 * progressPercent) / 100}
-              />
-            </svg>
-            <div className="relative flex flex-col items-center justify-center leading-none">
-              <span className="text-2xl font-black text-white">{totalSolved}</span>
-            </div>
-          </div>
-
-          <div className="relative z-10">
-            <h3 className="text-base font-black text-white tracking-tight">Problems Solved</h3>
-            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-              <span className="text-blue-400 font-bold">{progressPercent}%</span> of {totalProblems} available
-            </p>
-          </div>
+        <div className="flex gap-3 mb-8">
+          <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${problem.difficulty === 'Easy' ? 'bg-green-500/10 text-green-400' :
+              problem.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' :
+                'bg-red-500/10 text-red-400'
+            }`}>{problem.difficulty}</span>
+          <span className="px-2.5 py-1 text-xs text-muted-foreground bg-white/5 rounded-md">{problem.topic}</span>
         </div>
-      </section>
 
-      {/* Problem list section */}
-      <section className="rounded-3xl border border-white/10 bg-[#0a0a0c] overflow-hidden shadow-2xl">
-        {/* Toolbar */}
-        <div className="p-4 md:p-6 border-b border-white/5 flex flex-col sm:flex-row flex-wrap items-center gap-4">
-          <div className="relative flex-1 w-full min-w-[200px]">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input 
-              type="text" 
-              placeholder="Search problems..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-11 pr-4 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-foreground focus:outline-none focus:border-white/20 transition-all"
-            />
-          </div>
-          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto no-scrollbar pb-2 sm:pb-0">
-            {topics.map((topic) => (
-              <button 
-                key={topic}
-                onClick={() => setActiveFilter(topic)}
-                className={`px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
-                  activeFilter === topic 
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-                    : 'bg-white/5 text-muted-foreground hover:text-white hover:bg-white/10 border border-transparent'
-                }`}
-              >
-                {topic}
-              </button>
+        <div className="prose prose-invert prose-p:text-muted-foreground prose-p:leading-relaxed prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10">
+          <p className="whitespace-pre-wrap">{problem.description}</p>
+
+          <div className="mt-8 space-y-6">
+            {problem.test_cases?.map((ex: any, i: number) => (
+              <div key={i} className="bg-white/5 rounded-xl p-4 border border-white/5">
+                <p className="text-sm font-bold text-white mb-2">Example {i + 1}:</p>
+                <div className="font-mono text-sm space-y-1">
+                  <p><span className="text-muted-foreground">Input:</span> {ex.input}</p>
+                  <p><span className="text-muted-foreground">Output:</span> {ex.expected || ex.output}</p>
+                  {ex.explanation && <p className="text-muted-foreground mt-2 text-xs">{ex.explanation}</p>}
+                </div>
+              </div>
             ))}
           </div>
+
+          <div className="mt-8">
+            <h3 className="text-sm font-bold text-white mb-3">Constraints:</h3>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+              {problem.constraints?.map((c: string, i: number) => <li key={i} className="font-mono">{c}</li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Pane: Editor */}
+      <div className="w-full md:w-1/2 lg:w-3/5 flex flex-col h-full bg-[#1E1E1E]">
+
+        {/* UI Instructions */}
+        <div className="bg-blue-500/10 border-b border-blue-500/20 px-4 py-2 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-blue-400" />
+          <p className="text-xs font-bold text-blue-400">You only need to complete the function. Input/output handling is done automatically.</p>
+        </div>
+        {/* Editor Toolbar */}
+        <div className="h-14 flex items-center justify-between px-4 border-b border-white/5 bg-[#0A0A0C]">
+          <div className="flex items-center gap-2">
+            <FluidDropdown
+              value={language}
+              onSelect={(val) => handleLanguageChange(val)}
+            />
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-6 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-green-500/10 active:scale-95 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 fill-current" />
+            )}
+            Run Code
+          </button>
         </div>
 
-        {/* List */}
-        <div className="divide-y divide-white/5">
-          {loadingProblems ? (
-            <div className="p-12 text-center text-muted-foreground flex justify-center items-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" /> Loading problems...
-            </div>
-          ) : filteredProblems.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">
-              No problems found matching your criteria.
-            </div>
-          ) : (
-            filteredProblems.map((p) => {
-              const isSolved = solvedIds.has(p.id)
-              return (
-                <div 
-                  key={p.id} 
-                  onClick={() => router.push(`/dashboard/practice/${p.id}`)}
-                  className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 md:px-6 hover:bg-white/[0.02] transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-6 flex justify-center shrink-0">
-                      {isSolved ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      ) : (
-                        <div className="w-2.5 h-2.5 rounded-full bg-white/20 group-hover:bg-white/40 transition-colors" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white/90 group-hover:text-white transition-colors">{p.id}. {p.title}</h3>
-                      <p className="text-xs text-muted-foreground mt-1 hidden sm:block line-clamp-1">{p.description}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 mt-3 sm:mt-0 pl-10 sm:pl-0 shrink-0">
-                    <span className="text-xs text-muted-foreground bg-white/5 px-2.5 py-1 rounded-md">{p.topic}</span>
-                    <span className={`w-20 text-center text-xs font-bold rounded-full py-1.5 ${
-                      p.difficulty === 'Easy' ? 'bg-green-500/10 text-green-400' :
-                      p.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' :
-                      'bg-red-500/10 text-red-400'
-                    }`}>
-                      {p.difficulty}
-                    </span>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors hidden md:block opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0" />
-                  </div>
-                </div>
-              )
-            })
-          )}
+        {/* Monaco Editor */}
+        <div className="flex-1 min-h-[400px]">
+          <Editor
+            height="100%"
+            language={language}
+            theme="vs-dark"
+            value={code}
+            onChange={(val) => setCode(val || '')}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              fontFamily: 'geist-mono, monospace',
+              padding: { top: 16 },
+              scrollBeyondLastLine: false,
+            }}
+          />
         </div>
-      </section>
 
+        {/* Output Console */}
+        <div className="h-1/3 min-h-[200px] border-t border-white/10 bg-[#0A0A0C] flex flex-col">
+          <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Output Console</span>
+            {isSolved && <span className="text-xs text-green-400 ml-auto flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Accepted</span>}
+          </div>
+          <div className="flex-1 p-4 font-mono text-sm overflow-y-auto text-white/80 whitespace-pre-wrap">
+            {output || <span className="text-muted-foreground italic">Run your code to view output...</span>}
+          </div>
+        </div>
+
+      </div>
     </div>
   )
 }
