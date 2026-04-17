@@ -2,32 +2,8 @@
 
 import * as React from "react"
 import { motion, AnimatePresence, MotionConfig } from "framer-motion"
-import { ChevronDown, Coffee, Code2, Terminal, Braces } from "lucide-react"
-
-// Utility function for className merging
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ")
-}
-
-// Custom hook for click outside detection
-function useClickAway(ref: React.RefObject<HTMLElement>, handler: (event: MouseEvent | TouchEvent) => void) {
-  React.useEffect(() => {
-    const listener = (event: MouseEvent | TouchEvent) => {
-      if (!ref.current || ref.current.contains(event.target as Node)) {
-        return
-      }
-      handler(event)
-    }
-
-    document.addEventListener("mousedown", listener)
-    document.addEventListener("touchstart", listener)
-
-    return () => {
-      document.removeEventListener("mousedown", listener)
-      document.removeEventListener("touchstart", listener)
-    }
-  }, [ref, handler])
-}
+import { ChevronDown, Layers, LucideIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 // Button component
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -43,7 +19,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-          "disabled:pointer-events-none disabled:opacity-50",
+          "disabled:pointer-events-none disabled:opacity-50 text-white",
           variant === "outline" && "border border-neutral-700 bg-transparent",
           className
         )}
@@ -57,26 +33,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button"
 
 // Types
-export interface LanguageOption {
+export interface DropdownOption {
   id: string
   label: string
-  icon: React.ElementType
+  Icon: LucideIcon
   color: string
 }
 
-const languages: LanguageOption[] = [
-  { id: "java", label: "Java", icon: Coffee, color: "#ED8B00" },
-  { id: "cpp", label: "C++", icon: Code2, color: "#00599C" },
-  { id: "python", label: "Python 3", icon: Terminal, color: "#3776AB" },
-  { id: "javascript", label: "JavaScript", icon: Braces, color: "#F7DF1E" },
-]
-
 // Icon wrapper with animation
 const IconWrapper = ({
-  icon: Icon,
+  Icon,
   isHovered,
   color,
-}: { icon: React.ElementType; isHovered: boolean; color: string }) => (
+}: { Icon: LucideIcon; isHovered: boolean; color: string }) => (
   <motion.div 
     className="w-4 h-4 mr-2 relative" 
     initial={false} 
@@ -122,18 +91,38 @@ const itemVariants = {
 }
 
 interface FluidDropdownProps {
-  value: string;
-  onSelect: (id: string) => void;
+  options: DropdownOption[]
+  value: string | null
+  onChange: (id: string | null) => void
+  placeholder?: string
+  className?: string
 }
 
 // Main component
-export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
+export function FluidDropdown({ options, value, onChange, placeholder = "Select option", className }: FluidDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false)
-  const selectedLanguage = languages.find(l => l.id === value) || languages[2] // Default to Python if not found
-  const [hoveredLang, setHoveredLang] = React.useState<string | null>(null)
+  const [hoveredOptionId, setHoveredOptionId] = React.useState<string | null>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
-  useClickAway(dropdownRef, () => setIsOpen(false))
+  const selectedOption = options.find(opt => opt.id === value) || options[0]
+
+  // Custom hook for click outside detection
+  React.useEffect(() => {
+    const listener = (event: MouseEvent | TouchEvent) => {
+      if (!dropdownRef.current || dropdownRef.current.contains(event.target as Node)) {
+        return
+      }
+      setIsOpen(false)
+    }
+
+    document.addEventListener("mousedown", listener)
+    document.addEventListener("touchstart", listener)
+
+    return () => {
+      document.removeEventListener("mousedown", listener)
+      document.removeEventListener("touchstart", listener)
+    }
+  }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -144,36 +133,37 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="w-48 relative"
+        className={cn("w-full relative z-50", className)}
         ref={dropdownRef}
       >
           <Button
             variant="outline"
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
-              "w-full justify-between bg-neutral-900 text-neutral-400 rounded-lg",
+              "w-full justify-between bg-neutral-900 border-white/10 rounded-2xl h-[46px] px-4",
               "hover:bg-neutral-800 hover:text-neutral-200",
               "focus:ring-2 focus:ring-neutral-700 focus:ring-offset-2 focus:ring-offset-black",
               "transition-all duration-200 ease-in-out",
-              "border border-transparent focus:border-neutral-700",
-              "h-10",
+              "border border-transparent focus:border-neutral-700 text-neutral-400 font-medium",
               isOpen && "bg-neutral-800 text-neutral-200",
             )}
             aria-expanded={isOpen}
             aria-haspopup="true"
           >
             <span className="flex items-center">
-              <IconWrapper 
-                icon={selectedLanguage.icon} 
-                isHovered={false} 
-                color={selectedLanguage.color} 
-              />
-              {selectedLanguage.label}
+              {selectedOption && (
+                <IconWrapper 
+                  Icon={selectedOption.Icon} 
+                  isHovered={false} 
+                  color={selectedOption.color} 
+                />
+              )}
+              {selectedOption ? selectedOption.label : placeholder}
             </span>
             <motion.div
               animate={{ rotate: isOpen ? 180 : 0 }}
               transition={{ duration: 0.2 }}
-              className="flex items-center justify-center w-5 h-5"
+              className="flex items-center justify-center w-5 h-5 ml-2"
             >
               <ChevronDown className="w-4 h-4" />
             </motion.div>
@@ -205,14 +195,14 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                     mass: 1,
                   },
                 }}
-                className="absolute left-0 right-0 top-full mt-2 z-50"
+                className="absolute left-0 right-0 top-full mt-2 z-50 shadow-2xl"
                 onKeyDown={handleKeyDown}
               >
                 <motion.div
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 p-1 shadow-2xl"
-                  initial={{ borderRadius: 8 }}
+                  className="w-full rounded-2xl border border-neutral-800 bg-neutral-900 p-1 overflow-hidden"
+                  initial={{ borderRadius: 12 }}
                   animate={{
-                    borderRadius: 12,
+                    borderRadius: 16,
                     transition: { duration: 0.2 },
                   }}
                   style={{ transformOrigin: "top" }}
@@ -225,10 +215,10 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                   >
                     <motion.div
                       layoutId="hover-highlight"
-                      className="absolute inset-x-1 bg-neutral-800 rounded-lg"
+                      className="absolute inset-x-1 bg-neutral-800 rounded-xl"
                       animate={{
-                        y: languages.findIndex((l) => (hoveredLang || selectedLanguage.id) === l.id) * 40,
-                        height: 40,
+                        y: options.findIndex((opt) => (hoveredOptionId || selectedOption?.id) === opt.id) * 44,
+                        height: 44,
                       }}
                       transition={{
                         type: "spring",
@@ -236,32 +226,32 @@ export function FluidDropdown({ value, onSelect }: FluidDropdownProps) {
                         duration: 0.5,
                       }}
                     />
-                    {languages.map((lang, index) => (
+                    {options.map((option, index) => (
                       <motion.button
-                        key={lang.id}
+                        key={option.id}
                         onClick={() => {
-                          onSelect(lang.id)
+                          onChange(option.id === 'all' ? null : option.id)
                           setIsOpen(false)
                         }}
-                        onHoverStart={() => setHoveredLang(lang.id)}
-                        onHoverEnd={() => setHoveredLang(null)}
+                        onHoverStart={() => setHoveredOptionId(option.id)}
+                        onHoverEnd={() => setHoveredOptionId(null)}
                         className={cn(
-                          "relative flex w-full items-center px-4 py-2.5 text-sm rounded-lg",
+                          "relative flex w-full items-center px-4 py-3 text-sm rounded-xl",
                           "transition-colors duration-150",
                           "focus:outline-none",
-                          selectedLanguage.id === lang.id || hoveredLang === lang.id
-                            ? "text-neutral-200"
+                          selectedOption?.id === option.id || hoveredOptionId === option.id
+                            ? "text-white"
                             : "text-neutral-400",
                         )}
                         whileTap={{ scale: 0.98 }}
                         variants={itemVariants}
                       >
                         <IconWrapper
-                          icon={lang.icon}
-                          isHovered={hoveredLang === lang.id}
-                          color={lang.color}
+                          Icon={option.Icon}
+                          isHovered={hoveredOptionId === option.id}
+                          color={option.color}
                         />
-                        {lang.label}
+                        <span className="font-medium">{option.label}</span>
                       </motion.button>
                     ))}
                   </motion.div>

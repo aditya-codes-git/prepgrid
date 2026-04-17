@@ -6,7 +6,8 @@ import Editor from '@monaco-editor/react'
 import { 
   ArrowLeft, Play, Send, CheckCircle2, XCircle, 
   Loader2, AlertCircle, Terminal, History, Database,
-  ChevronRight, Languages, Clock, HardDrive
+  ChevronRight, Languages, Clock, HardDrive,
+  Cpu, Globe, Coffee
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-context'
 import { supabase } from '@/lib/supabase'
@@ -16,10 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FluidDropdown } from "@/components/ui/fluid-dropdown"
 
 const LANGUAGE_CONFIG = {
-  python: { id: 71, label: 'Python 3', ext: 'py' },
-  javascript: { id: 63, label: 'JavaScript', ext: 'js' },
-  cpp: { id: 54, label: 'C++', ext: 'cpp' },
-  java: { id: 62, label: 'Java', ext: 'java' },
+  python: { id: 71, label: 'Python 3', Icon: Database, color: '#FF6B6B' },
+  javascript: { id: 63, label: 'JavaScript', Icon: Globe, color: '#4D96FF' },
+  cpp: { id: 54, label: 'C++', Icon: Cpu, color: '#6BCB77' },
+  java: { id: 62, label: 'Java', Icon: Coffee, color: '#FFD93D' },
 }
 
 export default function ProblemDetailPage() {
@@ -305,8 +306,15 @@ export default function ProblemDetailPage() {
                 <div className="h-10 border-b border-white/5 bg-[#0a0a0c] flex items-center px-4">
                   <div className="flex items-center gap-2 group cursor-pointer relative">
                     <FluidDropdown 
+                      options={Object.entries(LANGUAGE_CONFIG).map(([key, cfg]) => ({
+                        id: key,
+                        label: cfg.label,
+                        Icon: cfg.Icon,
+                        color: cfg.color
+                      }))}
                       value={language}
-                      onSelect={(id) => handleLanguageChange(id as any)}
+                      onChange={(id) => handleLanguageChange(id as any)}
+                      className="w-48"
                     />
                   </div>
                 </div>
@@ -366,7 +374,7 @@ export default function ProblemDetailPage() {
                       {(isRunning || isSubmitting) ? (
                         <div className="h-full flex flex-col items-center justify-center opacity-50 space-y-4">
                           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                          <p className="text-xs font-bold uppercase tracking-widest animate-pulse">Executing on Judge0 Server...</p>
+                          <p className="text-xs font-bold uppercase tracking-widest animate-pulse text-blue-400">Executing your code...</p>
                         </div>
                       ) : submitResult ? (
                         /* Submission Results */
